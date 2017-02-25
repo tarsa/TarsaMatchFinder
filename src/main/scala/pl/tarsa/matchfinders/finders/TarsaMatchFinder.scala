@@ -38,98 +38,108 @@ object TarsaMatchFinder extends MatchFinder {
                        maxMatch: Int,
                        onAccepted: Match.Packed => Unit,
                        onDiscarded: Match.Packed => Unit) {
-    private val size = inputData.length
-    private val suffixArray = Array.tabulate[Int](size)(identity)
-    private val suffixArrayAuxiliary = Array.ofDim[Int](size)
+    private val size =
+      inputData.length
 
-    private val histogram = Array.ofDim[Int](256)
-    private val destinations = Array.ofDim[Int](256)
-    private val segmentsStack = Array.ofDim[Int](maxMatch + 1, 257)
+    private val suffixArray =
+      Array.tabulate[Int](size)(identity)
+    private val suffixArrayAuxiliary =
+      Array.ofDim[Int](size)
+
+    private val histogram =
+      Array.ofDim[Int](256)
+    private val destinations =
+      Array.ofDim[Int](256)
+
+    private val segmentsStack =
+      Array.ofDim[Int](maxMatch, 257)
 
     private def getValue(index: Int, depth: Int): Int = {
       inputData(suffixArray(index) + depth) & 0xFF
     }
 
-    private def go(lcpLength: Int,
-                   startingIndex: Int,
-                   unsafeElementsNumber: Int): Unit = {
-      val elementsNumber = {
-        val lastIndex = startingIndex + unsafeElementsNumber - 1
-        if (suffixArray(lastIndex) + lcpLength == size) {
-          if (lcpLength >= minMatch && startingIndex != lastIndex) {
+    private def radixSearch(lcpLength: Int,
+                            startingIndex: Int,
+                            unsafeElementsNumber: Int): Unit = {
+      if (lcpLength < maxMatch) {
+        val elementsNumber = {
+          val lastIndex = startingIndex + unsafeElementsNumber - 1
+          if (suffixArray(lastIndex) + lcpLength == size) {
+            if (lcpLength >= minMatch && startingIndex != lastIndex) {
+              val optimalMatch =
+                makePacked(suffixArray(lastIndex - 1),
+                           suffixArray(lastIndex),
+                           lcpLength)
+              if (suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0
+                  && getValue(lastIndex - 1, -1) == getValue(lastIndex, -1)) {
+                onDiscarded(optimalMatch)
+              } else {
+                onAccepted(optimalMatch)
+              }
+            }
+            unsafeElementsNumber - 1
+          } else {
+            unsafeElementsNumber
+          }
+        }
+        util.Arrays.fill(histogram, 0)
+        for (index <- startingIndex until startingIndex + elementsNumber) {
+          histogram(getValue(index, lcpLength)) += 1
+        }
+        if (lcpLength >= minMatch) {
+          for (index <- startingIndex + 1 until
+                 startingIndex + elementsNumber) {
             val optimalMatch =
-              makePacked(suffixArray(lastIndex - 1),
-                         suffixArray(lastIndex),
-                         lcpLength)
+              makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
             if (lcpLength < maxMatch &&
-                suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0 &&
-                getValue(lastIndex - 1, -1) == getValue(lastIndex, -1)) {
+                getValue(index - 1, lcpLength) == getValue(index, lcpLength)) {
+              onDiscarded(optimalMatch)
+            } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
+                       getValue(index - 1, -1) == getValue(index, -1)) {
               onDiscarded(optimalMatch)
             } else {
               onAccepted(optimalMatch)
             }
           }
-          unsafeElementsNumber - 1
-        } else {
-          unsafeElementsNumber
         }
-      }
-      util.Arrays.fill(histogram, 0)
-      for (index <- startingIndex until startingIndex + elementsNumber) {
-        histogram(getValue(index, lcpLength)) += 1
-      }
-      if (lcpLength >= minMatch && lcpLength < maxMatch) {
-        for (index <- startingIndex + 1 until startingIndex + elementsNumber) {
-          val optimalMatch =
-            makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
-          if (lcpLength < maxMatch &&
-              getValue(index - 1, lcpLength) == getValue(index, lcpLength)) {
-            onDiscarded(optimalMatch)
-          } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
-                     getValue(index - 1, -1) == getValue(index, -1)) {
-            onDiscarded(optimalMatch)
-          } else {
-            onAccepted(optimalMatch)
+        destinations(0) = startingIndex
+        for (i <- destinations.indices.tail) {
+          destinations(i) = destinations(i - 1) + histogram(i - 1)
+        }
+        for (index <- startingIndex until startingIndex + elementsNumber) {
+          val value = getValue(index, lcpLength)
+          suffixArrayAuxiliary(destinations(value)) = suffixArray(index)
+          destinations(value) += 1
+        }
+        Array.copy(suffixArrayAuxiliary,
+                   startingIndex,
+                   suffixArray,
+                   startingIndex,
+                   elementsNumber)
+        val segments = segmentsStack(lcpLength)
+        segments(0) = startingIndex
+        for (i <- segments.indices.tail) {
+          segments(i) = segments(i - 1) + histogram(i - 1)
+        }
+        for (i <- 0 until 256) {
+          val segmentLength = segments(i + 1) - segments(i)
+          if (segmentLength > 1) {
+            radixSearch(lcpLength + 1, segments(i), segmentLength)
           }
         }
-      } else if (lcpLength == maxMatch && elementsNumber != 0) {
-        for (index <- startingIndex + 1 until startingIndex + elementsNumber) {
+      } else {
+        assert(lcpLength == maxMatch)
+        for (index <- startingIndex + 1 until
+               startingIndex + unsafeElementsNumber) {
           val optimalMatch =
             makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
           onAccepted(optimalMatch)
         }
       }
-      destinations(0) = startingIndex
-      for (i <- destinations.indices.tail) {
-        destinations(i) = destinations(i - 1) + histogram(i - 1)
-      }
-      for (index <- startingIndex until startingIndex + elementsNumber) {
-        val value = getValue(index, lcpLength)
-        suffixArrayAuxiliary(destinations(value)) = suffixArray(index)
-        destinations(value) += 1
-      }
-      Array.copy(suffixArrayAuxiliary,
-                 startingIndex,
-                 suffixArray,
-                 startingIndex,
-                 elementsNumber)
-      val segments = segmentsStack(lcpLength)
-      segments(0) = startingIndex
-      for (i <- segments.indices.tail) {
-        segments(i) = segments(i - 1) + histogram(i - 1)
-      }
-      if (lcpLength < maxMatch) {
-        for (i <- 0 until 256) {
-          val segmentLength = segments(i + 1) - segments(i)
-          if (segmentLength > 1) {
-            go(lcpLength + 1, segments(i), segmentLength)
-          }
-        }
-      }
     }
 
     def result(): Unit =
-      go(0, 0, size)
+      radixSearch(0, 0, size)
   }
 
   private def makePacked(source: Int, target: Int, length: Int): Match.Packed =
