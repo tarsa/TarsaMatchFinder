@@ -20,7 +20,6 @@
  */
 package pl.tarsa.matchfinders.interpolation
 
-import java.util
 import java.util.Comparator
 
 import pl.tarsa.matchfinders.model.Match
@@ -47,6 +46,7 @@ class Interpolator {
     var matchLength = 0
     var nextMatchIndex = 0
     var offset = 0
+    var nonEssentialOnesCounter = 0
     // main loop
     position = 0
     while (position < data.length) {
@@ -76,17 +76,26 @@ class Interpolator {
         nextMatchIndex += 1
       }
       // sorting filtered matches
-      util.Arrays.sort(currentFilteredMatches,
-                       0,
-                       currentFilteredMatchesNumber,
-                       comparator)
+      java.util.Arrays.sort(currentFilteredMatches,
+                            0,
+                            currentFilteredMatchesNumber,
+                            comparator)
       // unrolling filtered matches
       currentFilteredMatchIndex = 0
       matchLength = minMatch
       while (currentFilteredMatchIndex < currentFilteredMatchesNumber) {
         currentFilteredMatch = currentFilteredMatches(
           currentFilteredMatchIndex)
+        val samePositionAndLength = currentFilteredMatchIndex > 0 &&
+          currentFilteredMatch.length == currentFilteredMatches(
+            currentFilteredMatchIndex - 1).length
         offset = position - currentFilteredMatch.source
+        val matchWasInherited =
+          currentFilteredMatch.length <= inheritedMaxMatch &&
+            offset == inheritedOffsets(currentFilteredMatch.length)
+        if (samePositionAndLength || matchWasInherited) {
+          nonEssentialOnesCounter += 1
+        }
         while (matchLength <= currentFilteredMatch.length) {
           currentOffsets(matchLength) = offset
           currentMaxMatch = matchLength
@@ -117,6 +126,8 @@ class Interpolator {
       // advance to next iteration
       position += 1
     }
+    println(s"Non essential matches present = $nonEssentialOnesCounter")
+    println("Non essential matches can be easily recomputed from others")
     interpolatedMatches
   }
 }
