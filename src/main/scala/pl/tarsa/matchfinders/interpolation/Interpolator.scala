@@ -28,16 +28,16 @@ class Interpolator {
   def run(inputSize: Int,
           minMatch: Int,
           maxMatch: Int,
-          filteredMatches: Array[Match.Packed]): Array[Match.Packed] = {
+          essentialMatches: Array[Match.Packed]): Array[Match.Packed] = {
     // variables
     val interpolatedMatchesArrayBuilder =
       mutable.ArrayBuilder.make[Match.Packed]()
-    val currentFilteredMatches =
+    val currentEssentialMatches =
       Array.ofDim[Match.Packed](maxMatch - minMatch + 1)
     val inheritedOffsets = Array.ofDim[Int](maxMatch + 1)
     val currentOffsets = Array.ofDim[Int](maxMatch + 1)
-    var currentFilteredMatchesNumber = 0
-    var currentFilteredMatchIndex = 0
+    var currentEssentialMatchesNumber = 0
+    var currentEssentialMatchIndex = 0
     var inheritedMaxMatch = 0
     var currentMaxMatch = 0
     var position = 0
@@ -57,40 +57,40 @@ class Interpolator {
       inheritedMaxMatch = currentMaxMatch - 1
       // clearing current matches
       currentMaxMatch = 0
-      // reading filtered matches
-      currentFilteredMatchesNumber = 0
-      while (nextMatchIndex < filteredMatches.length && Match(
-               filteredMatches(nextMatchIndex)).position == position) {
-        currentFilteredMatches(currentFilteredMatchesNumber) = filteredMatches(
-          nextMatchIndex)
-        currentFilteredMatchesNumber += 1
+      // reading essential matches
+      currentEssentialMatchesNumber = 0
+      while (nextMatchIndex < essentialMatches.length && Match(
+               essentialMatches(nextMatchIndex)).position == position) {
+        currentEssentialMatches(currentEssentialMatchesNumber) =
+          essentialMatches(nextMatchIndex)
+        currentEssentialMatchesNumber += 1
         nextMatchIndex += 1
       }
-      // sorting filtered matches
+      // sorting essential matches
       java.util.Arrays
-        .sort(currentFilteredMatches, 0, currentFilteredMatchesNumber)
-      // unrolling filtered matches
-      currentFilteredMatchIndex = 0
+        .sort(currentEssentialMatches, 0, currentEssentialMatchesNumber)
+      // unrolling essential matches
+      currentEssentialMatchIndex = 0
       matchLength = minMatch
-      while (currentFilteredMatchIndex < currentFilteredMatchesNumber) {
-        val currentFilteredMatch = Match(
-          currentFilteredMatches(currentFilteredMatchIndex))
-        val samePositionAndLength = currentFilteredMatchIndex > 0 &&
-            currentFilteredMatch.length == Match(
-              currentFilteredMatches(currentFilteredMatchIndex - 1)).length
-        offset = position - currentFilteredMatch.source
+      while (currentEssentialMatchIndex < currentEssentialMatchesNumber) {
+        val currentEssentialMatch = Match(
+          currentEssentialMatches(currentEssentialMatchIndex))
+        val samePositionAndLength = currentEssentialMatchIndex > 0 &&
+            currentEssentialMatch.length == Match(
+              currentEssentialMatches(currentEssentialMatchIndex - 1)).length
+        offset = position - currentEssentialMatch.source
         val matchWasInherited =
-          currentFilteredMatch.length <= inheritedMaxMatch &&
-            offset == inheritedOffsets(currentFilteredMatch.length)
+          currentEssentialMatch.length <= inheritedMaxMatch &&
+            offset == inheritedOffsets(currentEssentialMatch.length)
         if (samePositionAndLength || matchWasInherited) {
           nonEssentialOnesCounter += 1
         }
-        while (matchLength <= currentFilteredMatch.length) {
+        while (matchLength <= currentEssentialMatch.length) {
           currentOffsets(matchLength) = offset
           currentMaxMatch = matchLength
           matchLength += 1
         }
-        currentFilteredMatchIndex += 1
+        currentEssentialMatchIndex += 1
       }
       // merge inherited matches with current matches
       matchLength = minMatch
@@ -120,8 +120,7 @@ class Interpolator {
       // advance to next iteration
       position += 1
     }
-    println(s"Non essential matches present = $nonEssentialOnesCounter")
-    println("Non essential matches can be easily recomputed from others")
+    println(s"Non-essential matches present = $nonEssentialOnesCounter")
     interpolatedMatchesArrayBuilder.result()
   }
 }

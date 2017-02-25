@@ -25,17 +25,17 @@ import java.util
 import pl.tarsa.matchfinders.model.Match
 
 class TarsaMatchFinder extends MatchFinder {
-  override def run(data: Array[Byte],
+  override def run(inputData: Array[Byte],
                    minMatch: Int,
                    maxMatch: Int,
                    onAccepted: Match.Packed => Unit,
-                   onFiltered: Match.Packed => Unit): Unit = {
-    val size = data.length
+                   onDiscarded: Match.Packed => Unit): Unit = {
+    val size = inputData.length
     val suffixArray = Array.tabulate[Int](size)(identity)
     val suffixArrayAuxiliary = Array.ofDim[Int](size)
 
     def getValue(index: Int, depth: Int): Int = {
-      data(suffixArray(index) + depth) & 0xFF
+      inputData(suffixArray(index) + depth) & 0xFF
     }
 
     val histogram = Array.ofDim[Int](256)
@@ -49,16 +49,16 @@ class TarsaMatchFinder extends MatchFinder {
         val lastIndex = startingIndex + unsafeElementsNumber - 1
         if (suffixArray(lastIndex) + lcpLength == size) {
           if (lcpLength >= minMatch && startingIndex != lastIndex) {
-            val packedMatch =
+            val optimalMatch =
               makePacked(suffixArray(lastIndex - 1),
                          suffixArray(lastIndex),
                          lcpLength)
             if (lcpLength < maxMatch &&
                 suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0 &&
                 getValue(lastIndex - 1, -1) == getValue(lastIndex, -1)) {
-              onFiltered(packedMatch)
+              onDiscarded(optimalMatch)
             } else {
-              onAccepted(packedMatch)
+              onAccepted(optimalMatch)
             }
           }
           unsafeElementsNumber - 1
@@ -72,23 +72,23 @@ class TarsaMatchFinder extends MatchFinder {
       }
       if (lcpLength >= minMatch && lcpLength < maxMatch) {
         for (index <- startingIndex + 1 until startingIndex + elementsNumber) {
-          val packedMatch =
+          val optimalMatch =
             makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
           if (lcpLength < maxMatch &&
               getValue(index - 1, lcpLength) == getValue(index, lcpLength)) {
-            onFiltered(packedMatch)
+            onDiscarded(optimalMatch)
           } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
                      getValue(index - 1, -1) == getValue(index, -1)) {
-            onFiltered(packedMatch)
+            onDiscarded(optimalMatch)
           } else {
-            onAccepted(packedMatch)
+            onAccepted(optimalMatch)
           }
         }
       } else if (lcpLength == maxMatch && elementsNumber != 0) {
         for (index <- startingIndex + 1 until startingIndex + elementsNumber) {
-          val packedMatch =
+          val optimalMatch =
             makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
-          onAccepted(packedMatch)
+          onAccepted(optimalMatch)
         }
       }
       destinations(0) = startingIndex

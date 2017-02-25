@@ -23,9 +23,9 @@ package pl.tarsa.matchfinders.finders
 import pl.tarsa.matchfinders.model.Match
 
 trait MatchFinder {
-  def run(data: Array[Byte],
+  def run(inputData: Array[Byte],
           minMatch: Int,
           maxMatch: Int,
           onAccepted: Match.Packed => Unit,
-          onFiltered: Match.Packed => Unit): Unit
+          onDiscarded: Match.Packed => Unit): Unit
 }

@@ -35,7 +35,7 @@ import pl.tarsa.matchfinders.verification.Verifier
 import scala.collection.mutable
 
 object Main {
-  private val compactedMatchesFileMagicNumber = 3463562352346342432l
+  private val essentialMatchesFileMagicNumber = 3463562352346342432l
   private val interpolatedMatchesFileMagicNumber = 3765472453426534653l
   private val headerSize = 8 + 4 + 2 + 2
   private val serializedMatchSize = 4 * 4
@@ -47,10 +47,10 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     args.toSeq match {
-      case Seq("find-matches", input, finder, min, max, compacted) =>
-        findMatches(input, finder, min, max, compacted)
-      case Seq("interpolate", compacted, interpolated) =>
-        interpolate(compacted, interpolated)
+      case Seq("find-matches", input, finder, min, max, essential) =>
+        findMatches(input, finder, min, max, essential)
+      case Seq("interpolate", essential, interpolated) =>
+        interpolate(essential, interpolated)
       case Seq("verify", input, interpolated) =>
         verify(input, interpolated)
       case Seq("help") =>
@@ -62,12 +62,12 @@ object Main {
     }
   }
 
-  def findMatches(inputFileName: String,
+  def findMatches(inputDataFileName: String,
                   finderName: String,
                   minString: String,
                   maxString: String,
-                  compactedFileName: String): Unit = {
-    val input = Files.readAllBytes(Paths.get(inputFileName))
+                  essentialMatchesFileName: String): Unit = {
+    val inputData = Files.readAllBytes(Paths.get(inputDataFileName))
     val finder: MatchFinder =
       finderName match {
         case "bfmf" =>
@@ -78,48 +78,50 @@ object Main {
     val minMatch = minString.toInt
     val maxMatch = maxString.toInt
     assert(1 <= minMatch && minMatch <= maxMatch && maxMatch <= 120)
-    val filteredMatchesArrayBuilder = mutable.ArrayBuilder.make[Match.Packed]()
-    finder.run(input,
+    val essentialMatchesArrayBuilder =
+      mutable.ArrayBuilder.make[Match.Packed]()
+    finder.run(inputData,
                minMatch,
                maxMatch,
-               filteredMatchesArrayBuilder += _,
+               essentialMatchesArrayBuilder += _,
                _ => ())
-    val filteredMatchesArray = filteredMatchesArrayBuilder.result()
-    val filteredMatchesNumber = filteredMatchesArray.length
-    val compactedMatchesDataArray = Array.ofDim[Byte](
-      headerSize + filteredMatchesNumber * serializedMatchSize)
-    val compactedMatchesDataBuffer =
-      ByteBuffer.wrap(compactedMatchesDataArray).order(ByteOrder.BIG_ENDIAN)
-    writeHeader(Header(compactedMatchesFileMagicNumber,
-                       input.length,
+    val essentialMatchesArray = essentialMatchesArrayBuilder.result()
+    val essentialMatchesNumber = essentialMatchesArray.length
+    val essentialMatchesDataArray = Array.ofDim[Byte](
+      headerSize + essentialMatchesNumber * serializedMatchSize)
+    val essentialMatchesDataBuffer =
+      ByteBuffer.wrap(essentialMatchesDataArray).order(ByteOrder.BIG_ENDIAN)
+    writeHeader(Header(essentialMatchesFileMagicNumber,
+                       inputData.length,
                        minMatch.toShort,
                        maxMatch.toShort),
-                compactedMatchesDataBuffer)
-    java.util.Arrays.sort(filteredMatchesArray)
-    filteredMatchesArray.foreach { packedMatch =>
-      writeMatch(Match(packedMatch), compactedMatchesDataBuffer)
+                essentialMatchesDataBuffer)
+    java.util.Arrays.sort(essentialMatchesArray)
+    essentialMatchesArray.foreach { packedMatch =>
+      writeMatch(Match(packedMatch), essentialMatchesDataBuffer)
     }
-    println(s"Filtered matches written = $filteredMatchesNumber")
-    Files.write(Paths.get(compactedFileName), compactedMatchesDataArray)
+    println(s"Essential matches written = $essentialMatchesNumber")
+    Files.write(Paths.get(essentialMatchesFileName), essentialMatchesDataArray)
   }
 
-  def interpolate(compactedFileName: String,
-                  interpolatedFileName: String): Unit = {
-    val compactedMatchesDataArray =
-      Files.readAllBytes(Paths.get(compactedFileName))
-    val compactedMatchesDataBuffer =
-      ByteBuffer.wrap(compactedMatchesDataArray).order(ByteOrder.BIG_ENDIAN)
+  def interpolate(essentialMatchesFileName: String,
+                  interpolatedMatchesFileName: String): Unit = {
+    val essentialMatchesDataArray =
+      Files.readAllBytes(Paths.get(essentialMatchesFileName))
+    val essentialMatchesDataBuffer =
+      ByteBuffer.wrap(essentialMatchesDataArray).order(ByteOrder.BIG_ENDIAN)
     val Header(magicNumber, inputSize, minMatch, maxMatch) =
-      readHeader(compactedMatchesDataBuffer)
-    assert(magicNumber == compactedMatchesFileMagicNumber)
-    val filteredMatchesArrayBuilder = mutable.ArrayBuilder.make[Match.Packed]()
-    while (compactedMatchesDataBuffer.hasRemaining) {
-      filteredMatchesArrayBuilder +=
-        readMatch(compactedMatchesDataBuffer).packed
+      readHeader(essentialMatchesDataBuffer)
+    assert(magicNumber == essentialMatchesFileMagicNumber)
+    val essentialMatchesArrayBuilder =
+      mutable.ArrayBuilder.make[Match.Packed]()
+    while (essentialMatchesDataBuffer.hasRemaining) {
+      essentialMatchesArrayBuilder +=
+        readMatch(essentialMatchesDataBuffer).packed
     }
-    val filteredMatchesArray = filteredMatchesArrayBuilder.result()
+    val essentialMatchesArray = essentialMatchesArrayBuilder.result()
     val interpolatedMatchesArray = new Interpolator()
-      .run(inputSize, minMatch, maxMatch, filteredMatchesArray)
+      .run(inputSize, minMatch, maxMatch, essentialMatchesArray)
     val interpolatedMatchesNumber = interpolatedMatchesArray.length
     val interpolatedMatchesDataArray = Array.ofDim[Byte](
       headerSize + interpolatedMatchesNumber * serializedMatchSize)
@@ -134,13 +136,15 @@ object Main {
       writeMatch(Match(packedMatch), interpolatedMatchesDataBuffer)
     }
     println(s"Interpolated matches written = $interpolatedMatchesNumber")
-    Files.write(Paths.get(interpolatedFileName), interpolatedMatchesDataArray)
+    Files.write(Paths.get(interpolatedMatchesFileName),
+                interpolatedMatchesDataArray)
   }
 
-  def verify(inputFileName: String, interpolatedFileName: String): Unit = {
-    val input = Files.readAllBytes(Paths.get(inputFileName))
+  def verify(inputDataFileName: String,
+             interpolatedMatchesFileName: String): Unit = {
+    val input = Files.readAllBytes(Paths.get(inputDataFileName))
     val interpolatedMatchesDataArray =
-      Files.readAllBytes(Paths.get(interpolatedFileName))
+      Files.readAllBytes(Paths.get(interpolatedMatchesFileName))
     val interpolatedMatchesDataBuffer =
       ByteBuffer.wrap(interpolatedMatchesDataArray).order(ByteOrder.BIG_ENDIAN)
     val Header(magicNumber, inputSize, minMatch, maxMatch) =
@@ -199,23 +203,23 @@ object Main {
       """ Available commands (case sensitive):
         |  help
         |    displays this help
-        |  find-matches <input> <finder> <min> <max> <compacted>
-        |    finds matches in input file and stores the essential ones
+        |  find-matches <input> <finder> <min> <max> <essential>
+        |    finds all optimal matches in input and stores the essential ones
         |    input: input file with original data
         |    finder: match finder, one of:
         |      bfmf: brute force match finder
         |      tmf: Tarsa match finder
         |    min: minimum match size, min >= 1, min <= max
         |    max: maximum match size, max >= min, max <= 120
-        |    compacted: file where filtered matches will be written
-        |  interpolate <compacted> <interpolated>
-        |    reconstructs full set of matches from essential ones
-        |    compacted: file with filtered matches
-        |    interpolated: file where full set of matches will be written
+        |    essential: file to store essential matches
+        |  interpolate <essential> <interpolated>
+        |    reconstructs full set of optimal matches from essential ones
+        |    essential: file with essential matches
+        |    interpolated: file to store full set of optimal matches
         |  verify <input> <interpolated>
-        |    uses brute force match finder to verify presence of all matches
+        |    uses brute force search to verify presence of all optimal matches
         |    input: input file with original data
-        |    interpolated: file with full set of matches
+        |    interpolated: file with full set of optimal matches
       """.stripMargin
     )
   }

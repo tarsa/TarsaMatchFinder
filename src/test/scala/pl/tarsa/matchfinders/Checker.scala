@@ -36,9 +36,9 @@ object Checker {
     val maxMatch = 3
 
     val bruteForceAcceptedBuilder = mutable.ArrayBuilder.make[Match.Packed]()
-    var bruteForceFilteredCounter = 0
+    var bruteForceDiscardedCounter = 0
     val tarsaAcceptedBuilder = mutable.ArrayBuilder.make[Match.Packed]()
-    var tarsaFilteredCounter = 0
+    var tarsaDiscardedCounter = 0
 
     timed("TarsaMatchFinder.run") {
       new TarsaMatchFinder()
@@ -46,7 +46,7 @@ object Checker {
              minMatch,
              maxMatch,
              tarsaAcceptedBuilder += _,
-             _ => tarsaFilteredCounter += 1)
+             _ => tarsaDiscardedCounter += 1)
     }
 
     timed("BruteForceMatchFinder.run") {
@@ -54,7 +54,7 @@ object Checker {
                                       minMatch,
                                       maxMatch,
                                       bruteForceAcceptedBuilder += _,
-                                      _ => bruteForceFilteredCounter += 1)
+                                      _ => bruteForceDiscardedCounter += 1)
     }
 
     val bruteForceAcceptedArray = bruteForceAcceptedBuilder.result()
@@ -116,10 +116,10 @@ object Checker {
       }
 
     println(s"Brute Force accepted: ${bruteForceAcceptedArray.length}")
-    println(s"Brute Force filtered: $bruteForceFilteredCounter")
+    println(s"Brute Force discarded: $bruteForceDiscardedCounter")
 
     println(s"Tarsa accepted: ${tarsaAcceptedArray.length}")
-    println(s"Tarsa filtered: $tarsaFilteredCounter")
+    println(s"Tarsa discarded: $tarsaDiscardedCounter")
   }
 
   def echo(string: String): Unit =

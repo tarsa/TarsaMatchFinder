@@ -23,11 +23,11 @@ package pl.tarsa.matchfinders.finders
 import pl.tarsa.matchfinders.model.Match
 
 class BruteForceMatchFinder extends MatchFinder {
-  override def run(data: Array[Byte],
+  override def run(inputData: Array[Byte],
                    minMatch: Int,
                    maxMatch: Int,
                    onAccepted: Match.Packed => Unit,
-                   onFiltered: Match.Packed => Unit): Unit = {
+                   onDiscarded: Match.Packed => Unit): Unit = {
     // variables
     val inheritedOffsets = Array.ofDim[Int](maxMatch + 1)
     val currentOffsets = Array.ofDim[Int](maxMatch + 1)
@@ -38,7 +38,7 @@ class BruteForceMatchFinder extends MatchFinder {
     var offset = 0
     // main loop
     position = 1
-    while (position < data.length) {
+    while (position < inputData.length) {
       // inheriting matches
       matchLength = 2
       while (matchLength <= currentMaxMatch) {
@@ -52,7 +52,7 @@ class BruteForceMatchFinder extends MatchFinder {
       offset = 1
       while (offset <= position && currentMaxMatch < maxMatch) {
         matchLength =
-          computeMatchLength(data, position - offset, position, maxMatch)
+          computeMatchLength(inputData, position - offset, position, maxMatch)
         while (currentMaxMatch < matchLength) {
           currentMaxMatch += 1
           currentOffsets(currentMaxMatch) = offset
@@ -66,12 +66,12 @@ class BruteForceMatchFinder extends MatchFinder {
             inheritedOffsets(matchLength) == currentOffsets(matchLength)
         val higherHasSameOffset = matchLength < currentMaxMatch &&
             currentOffsets(matchLength) == currentOffsets(matchLength + 1)
-        val packedMatch =
+        val optimalMatch =
           makePacked(position, matchLength, currentOffsets(matchLength))
         if (currentIsInherited || higherHasSameOffset) {
-          onFiltered(packedMatch)
+          onDiscarded(optimalMatch)
         } else {
-          onAccepted(packedMatch)
+          onAccepted(optimalMatch)
         }
         matchLength += 1
       }
