@@ -30,7 +30,7 @@ import scala.collection.mutable
 object Checker {
   def main(args: Array[String]): Unit = {
     val data =
-      Files.readAllBytes(Paths.get("corpora", "enwik", "enwik6"))
+      Files.readAllBytes(Paths.get("corpora", "enwik", "enwik5"))
 
     val minMatch = 2
     val maxMatch = 3
@@ -60,23 +60,22 @@ object Checker {
     val bruteForceAcceptedArray = bruteForceAcceptedBuilder.result()
     val tarsaAcceptedArray = tarsaAcceptedBuilder.result()
 
-//    (bruteForceAccepted.toList.map(("Accepted (BF)", _)) ++
-//      tarsaAccepted.toList.map(("Accepted (T)", _))).toArray
-//      .sortBy { case (desc, m) => (m.target, m.length, desc) }
-//      .foreach { case (desc, m) => println(f"$desc%-20s $m") }
+    assert(isSorted(bruteForceAcceptedArray))
+    java.util.Arrays.sort(tarsaAcceptedArray)
 
-//    tarsaAccepted.toArray.sortBy(m => (m.target, m.length)).foreach { m =>
-//      println(f"${m.target - m.source}%7d, ${m.target}%7d, ${m.length}%3d")
-//    }
+    tarsaAcceptedArray.take(1000).foreach { packedMatch =>
+      val theMatch = Match(packedMatch)
+      import theMatch._
+      println(f"$offset%9d, $position%9d, $length%3d")
+    }
 
     val onlyInBruteForceAccepted =
       (bruteForceAcceptedArray.toSet -- tarsaAcceptedArray.toSet).toArray
     java.util.Arrays.sort(onlyInBruteForceAccepted)
 
     if (onlyInBruteForceAccepted.nonEmpty) {
-      println("Only in brute force accepted:")
-      onlyInBruteForceAccepted.foreach { packedMatch =>
-        println(Match(packedMatch))
+      onlyInBruteForceAccepted.take(1000).foreach { packedMatch =>
+        println(s"Only in brute force accepted: ${Match(packedMatch)}")
       }
     }
 
@@ -85,11 +84,36 @@ object Checker {
     java.util.Arrays.sort(onlyInTarsaAccepted)
 
     if (onlyInTarsaAccepted.nonEmpty) {
-      println("Only in Tarsa accepted:")
-      onlyInTarsaAccepted.foreach { packedMatch =>
-        println(Match(packedMatch))
+      onlyInTarsaAccepted.take(1000).foreach { packedMatch =>
+        println(s"Only in Tarsa accepted: ${Match(packedMatch)}")
       }
     }
+
+    val bruteForceAcceptedForComparison =
+      bruteForceAcceptedArray.toList.map { packedMatch =>
+        if (java.util.Arrays.binarySearch(onlyInBruteForceAccepted,
+                                          packedMatch) >= 0) {
+          (packedMatch, "Accepted (BF) !!!")
+        } else {
+          (packedMatch, "Accepted (BF)")
+        }
+      }
+    val tarsaAcceptedForComparison =
+      tarsaAcceptedArray.toList.map { packedMatch =>
+        if (java.util.Arrays.binarySearch(onlyInTarsaAccepted, packedMatch) >= 0) {
+          (packedMatch, "Accepted (T)  %%%")
+        } else {
+          (packedMatch, "Accepted (T)")
+        }
+      }
+    val bothForComparison =
+      bruteForceAcceptedForComparison ++ tarsaAcceptedForComparison
+    bothForComparison.toArray.sorted
+      .take(2000)
+      .foreach {
+        case (packedMatch, desc) =>
+          println(f"$desc%-20s ${Match(packedMatch)}")
+      }
 
     println(s"Brute Force accepted: ${bruteForceAcceptedArray.length}")
     println(s"Brute Force filtered: $bruteForceFilteredCounter")
@@ -108,4 +132,7 @@ object Checker {
     println(s"$description took ${endTime - startTime} ms")
     result
   }
+
+  def isSorted(matches: Array[Match.Packed]): Boolean =
+    matches.sameElements(matches.sorted)
 }

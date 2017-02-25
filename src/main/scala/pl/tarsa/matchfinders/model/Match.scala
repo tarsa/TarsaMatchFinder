@@ -35,8 +35,13 @@ case class Match(packed: Packed) extends AnyVal {
   def source: Int =
     position - offset
 
-//  def target: Int =
-//    position
+  def target: Int =
+    position
+
+  override def toString: String = {
+    f"Match(position=$position%9d, length=$length%3d, " +
+      f"offset=$offset%9d, source=$source%9d)"
+  }
 }
 
 object Match {
