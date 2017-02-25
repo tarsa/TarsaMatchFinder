@@ -25,7 +25,7 @@ import pl.tarsa.matchfinders.model.Match
 import scala.collection.mutable
 
 class Interpolator {
-  def run(data: Array[Byte],
+  def run(inputSize: Int,
           minMatch: Int,
           maxMatch: Int,
           filteredMatches: Array[Match.Packed]): Array[Match.Packed] = {
@@ -47,7 +47,7 @@ class Interpolator {
     var nonEssentialOnesCounter = 0
     // main loop
     position = 0
-    while (position < data.length) {
+    while (position < inputSize) {
       // inheriting matches
       matchLength = 2
       while (matchLength <= currentMaxMatch) {

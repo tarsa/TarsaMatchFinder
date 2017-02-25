@@ -49,8 +49,8 @@ object Main {
     args.toSeq match {
       case Seq("find-matches", input, finder, min, max, compacted) =>
         findMatches(input, finder, min, max, compacted)
-      case Seq("interpolate", input, compacted, interpolated) =>
-        interpolate(input, compacted, interpolated)
+      case Seq("interpolate", compacted, interpolated) =>
+        interpolate(compacted, interpolated)
       case Seq("verify", input, interpolated) =>
         verify(input, interpolated)
       case Seq("help") =>
@@ -103,10 +103,8 @@ object Main {
     Files.write(Paths.get(compactedFileName), compactedMatchesDataArray)
   }
 
-  def interpolate(inputFileName: String,
-                  compactedFileName: String,
+  def interpolate(compactedFileName: String,
                   interpolatedFileName: String): Unit = {
-    val input = Files.readAllBytes(Paths.get(inputFileName))
     val compactedMatchesDataArray =
       Files.readAllBytes(Paths.get(compactedFileName))
     val compactedMatchesDataBuffer =
@@ -114,15 +112,14 @@ object Main {
     val Header(magicNumber, inputSize, minMatch, maxMatch) =
       readHeader(compactedMatchesDataBuffer)
     assert(magicNumber == compactedMatchesFileMagicNumber)
-    assert(inputSize == input.length)
     val filteredMatchesArrayBuilder = mutable.ArrayBuilder.make[Match.Packed]()
     while (compactedMatchesDataBuffer.hasRemaining) {
       filteredMatchesArrayBuilder +=
         readMatch(compactedMatchesDataBuffer).packed
     }
     val filteredMatchesArray = filteredMatchesArrayBuilder.result()
-    val interpolatedMatchesArray =
-      new Interpolator().run(input, minMatch, maxMatch, filteredMatchesArray)
+    val interpolatedMatchesArray = new Interpolator()
+      .run(inputSize, minMatch, maxMatch, filteredMatchesArray)
     val interpolatedMatchesNumber = interpolatedMatchesArray.length
     val interpolatedMatchesDataArray = Array.ofDim[Byte](
       headerSize + interpolatedMatchesNumber * serializedMatchSize)
@@ -211,9 +208,8 @@ object Main {
         |    min: minimum match size, min >= 1, min <= max
         |    max: maximum match size, max >= min, max <= 120
         |    compacted: file where filtered matches will be written
-        |  interpolate <input> <compacted> <interpolated>
+        |  interpolate <compacted> <interpolated>
         |    reconstructs full set of matches from essential ones
-        |    input: input file with original data
         |    compacted: file with filtered matches
         |    interpolated: file where full set of matches will be written
         |  verify <input> <interpolated>
