@@ -124,6 +124,7 @@ object Main {
                        maxMatch),
                 interpolatedMatchesDataBuffer)
     interpolatedMatches.foreach(writeMatch(_, interpolatedMatchesDataBuffer))
+    println(s"Interpolated matches written = ${interpolatedMatches.size}")
     Files.write(Paths.get(interpolatedFileName), interpolatedMatchesDataArray)
   }
 
