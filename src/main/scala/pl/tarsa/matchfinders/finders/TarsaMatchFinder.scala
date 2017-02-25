@@ -38,9 +38,7 @@ class TarsaMatchFinder extends MatchFinder {
       data(suffixArray(index) + depth) & 0xFF
     }
 
-    // TODO alphabet remapping for small segments
     val histogram = Array.ofDim[Int](256)
-    val lastOccurrences = Array.ofDim[Int](256)
     val destinations = Array.ofDim[Int](256)
     val segmentsStack = Array.ofDim[Int](maxMatch + 1, 257)
 
@@ -86,26 +84,10 @@ class TarsaMatchFinder extends MatchFinder {
           }
         }
       } else if (lcpLength == maxMatch && elementsNumber != 0) {
-        util.Arrays.fill(lastOccurrences, -1)
-        lastOccurrences(getValue(startingIndex, lcpLength)) = startingIndex
         for (index <- startingIndex + 1 until startingIndex + elementsNumber) {
           val packedMatch =
             makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
-          if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
-              getValue(index - 1, -1) == getValue(index, -1)) {
-            onFiltered(packedMatch)
-            val lastOccurrence = lastOccurrences(getValue(index, lcpLength))
-            if (lastOccurrence != -1 && getValue(index - 1, lcpLength) !=
-                  getValue(index, lcpLength)) {
-              onAccepted(
-                makePacked(suffixArray(lastOccurrence) + 1,
-                           suffixArray(index) + 1,
-                           maxMatch))
-            }
-          } else {
-            onAccepted(packedMatch)
-          }
-          lastOccurrences(getValue(index, lcpLength)) = index
+          onAccepted(packedMatch)
         }
       }
       destinations(0) = startingIndex
