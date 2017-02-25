@@ -71,9 +71,9 @@ object Main {
     val finder: MatchFinder =
       finderName match {
         case "bfmf" =>
-          new BruteForceMatchFinder()
+          BruteForceMatchFinder
         case "tmf" =>
-          new TarsaMatchFinder()
+          TarsaMatchFinder
       }
     val minMatch = minString.toInt
     val maxMatch = maxString.toInt

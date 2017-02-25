@@ -22,7 +22,7 @@ package pl.tarsa.matchfinders.finders
 
 import pl.tarsa.matchfinders.model.Match
 
-class BruteForceMatchFinder extends MatchFinder {
+object BruteForceMatchFinder extends MatchFinder {
   override def run(inputData: Array[Byte],
                    minMatch: Int,
                    maxMatch: Int,

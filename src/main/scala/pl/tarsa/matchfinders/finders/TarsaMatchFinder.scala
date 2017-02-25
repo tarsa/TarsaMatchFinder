@@ -24,27 +24,35 @@ import java.util
 
 import pl.tarsa.matchfinders.model.Match
 
-class TarsaMatchFinder extends MatchFinder {
+object TarsaMatchFinder extends MatchFinder {
   override def run(inputData: Array[Byte],
                    minMatch: Int,
                    maxMatch: Int,
                    onAccepted: Match.Packed => Unit,
                    onDiscarded: Match.Packed => Unit): Unit = {
-    val size = inputData.length
-    val suffixArray = Array.tabulate[Int](size)(identity)
-    val suffixArrayAuxiliary = Array.ofDim[Int](size)
+    new Engine(inputData, minMatch, maxMatch, onAccepted, onDiscarded).result()
+  }
 
-    def getValue(index: Int, depth: Int): Int = {
+  private class Engine(inputData: Array[Byte],
+                       minMatch: Int,
+                       maxMatch: Int,
+                       onAccepted: Match.Packed => Unit,
+                       onDiscarded: Match.Packed => Unit) {
+    private val size = inputData.length
+    private val suffixArray = Array.tabulate[Int](size)(identity)
+    private val suffixArrayAuxiliary = Array.ofDim[Int](size)
+
+    private val histogram = Array.ofDim[Int](256)
+    private val destinations = Array.ofDim[Int](256)
+    private val segmentsStack = Array.ofDim[Int](maxMatch + 1, 257)
+
+    private def getValue(index: Int, depth: Int): Int = {
       inputData(suffixArray(index) + depth) & 0xFF
     }
 
-    val histogram = Array.ofDim[Int](256)
-    val destinations = Array.ofDim[Int](256)
-    val segmentsStack = Array.ofDim[Int](maxMatch + 1, 257)
-
-    def go(lcpLength: Int,
-           startingIndex: Int,
-           unsafeElementsNumber: Int): Unit = {
+    private def go(lcpLength: Int,
+                   startingIndex: Int,
+                   unsafeElementsNumber: Int): Unit = {
       val elementsNumber = {
         val lastIndex = startingIndex + unsafeElementsNumber - 1
         if (suffixArray(lastIndex) + lcpLength == size) {
@@ -120,7 +128,8 @@ class TarsaMatchFinder extends MatchFinder {
       }
     }
 
-    go(0, 0, size)
+    def result(): Unit =
+      go(0, 0, size)
   }
 
   private def makePacked(source: Int, target: Int, length: Int): Match.Packed =

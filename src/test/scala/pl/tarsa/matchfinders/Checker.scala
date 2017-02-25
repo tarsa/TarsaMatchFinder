@@ -41,20 +41,19 @@ object Checker {
     var tarsaDiscardedCounter = 0
 
     timed("TarsaMatchFinder.run") {
-      new TarsaMatchFinder()
-        .run(data,
-             minMatch,
-             maxMatch,
-             tarsaAcceptedBuilder += _,
-             _ => tarsaDiscardedCounter += 1)
+      TarsaMatchFinder.run(data,
+                           minMatch,
+                           maxMatch,
+                           tarsaAcceptedBuilder += _,
+                           _ => tarsaDiscardedCounter += 1)
     }
 
     timed("BruteForceMatchFinder.run") {
-      new BruteForceMatchFinder().run(data,
-                                      minMatch,
-                                      maxMatch,
-                                      bruteForceAcceptedBuilder += _,
-                                      _ => bruteForceDiscardedCounter += 1)
+      BruteForceMatchFinder.run(data,
+                                minMatch,
+                                maxMatch,
+                                bruteForceAcceptedBuilder += _,
+                                _ => bruteForceDiscardedCounter += 1)
     }
 
     val bruteForceAcceptedArray = bruteForceAcceptedBuilder.result()
