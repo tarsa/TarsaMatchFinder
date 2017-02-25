@@ -53,7 +53,8 @@ class TarsaMatchFinder extends MatchFinder {
               makePacked(suffixArray(lastIndex - 1),
                          suffixArray(lastIndex),
                          lcpLength)
-            if (suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0 &&
+            if (lcpLength < maxMatch &&
+                suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0 &&
                 getValue(lastIndex - 1, -1) == getValue(lastIndex, -1)) {
               onFiltered(packedMatch)
             } else {
