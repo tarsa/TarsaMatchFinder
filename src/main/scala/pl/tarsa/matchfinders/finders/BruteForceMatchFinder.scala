@@ -67,8 +67,8 @@ class BruteForceMatchFinder extends MatchFinder {
         offset += 1
       }
       // filtering and outputting matches
-      matchLength = currentMaxMatch
-      while (matchLength >= minMatch) {
+      matchLength = minMatch
+      while (matchLength <= currentMaxMatch) {
         val currentIsInherited = matchLength <= inheritedMaxMatch &&
             inheritedOffsets(matchLength) == currentOffsets(matchLength)
         val higherHasSameOffset = matchLength < currentMaxMatch &&
@@ -80,7 +80,7 @@ class BruteForceMatchFinder extends MatchFinder {
         } else {
           onAccepted(packedMatch)
         }
-        matchLength -= 1
+        matchLength += 1
       }
       // advance to next iteration
       position += 1
