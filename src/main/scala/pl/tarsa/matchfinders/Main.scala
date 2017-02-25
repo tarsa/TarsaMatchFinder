@@ -92,6 +92,7 @@ object Main {
     filteredMatchesBuffer.toArray
       .sortBy(_.target)
       .foreach(writeMatch(_, compactedMatchesDataBuffer))
+    println(s"Filtered matches written = ${filteredMatchesBuffer.size}")
     Files.write(Paths.get(compactedFileName), compactedMatchesDataArray)
   }
 
