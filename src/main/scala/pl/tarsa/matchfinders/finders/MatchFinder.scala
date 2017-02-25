@@ -26,6 +26,6 @@ trait MatchFinder {
   def run(data: Array[Byte],
           minMatch: Int,
           maxMatch: Int,
-          onAccepted: Match => Unit,
-          onFiltered: Match => Unit): Unit
+          onAccepted: Match.Packed => Unit,
+          onFiltered: Match.Packed => Unit): Unit
 }

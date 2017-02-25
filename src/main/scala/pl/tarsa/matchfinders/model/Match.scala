@@ -20,4 +20,70 @@
  */
 package pl.tarsa.matchfinders.model
 
-case class Match(source: Int, target: Int, length: Int)
+import Match._
+
+case class Match(packed: Packed) extends AnyVal {
+  def position: Int =
+    ((packed >> positionShift) & positionMask).toInt
+
+  def length: Int =
+    ((packed >> lengthShift) & lengthMask).toInt
+
+  def offset: Int =
+    ((packed >> offsetShift) & offsetMask).toInt
+
+  def source: Int =
+    position - offset
+
+//  def target: Int =
+//    position
+}
+
+object Match {
+  type Packed = Long
+
+  def Bottom: Packed =
+    -1L
+
+  def fromPositionLengthSource(position: Int,
+                               length: Int,
+                               source: Int): Match =
+    fromPositionLengthOffset(position, length, position - source)
+
+  def fromPositionLengthOffset(position: Int,
+                               length: Int,
+                               offset: Int): Match = {
+    val packed =
+      (position.toLong << positionShift) +
+        (length.toLong << lengthShift) +
+        (offset.toLong << offsetShift)
+    Match(packed)
+  }
+
+  def positionBits: Int =
+    28
+
+  def lengthBits: Int =
+    7
+
+  def offsetBits: Int =
+    28
+
+  def positionMask: Int =
+    (1 << positionBits) - 1
+
+  def lengthMask: Int =
+    (1 << lengthBits) - 1
+
+  def offsetMask: Int =
+    (1 << offsetBits) - 1
+
+  def positionShift: Int =
+    lengthShift + lengthBits
+
+  def lengthShift: Int =
+    offsetShift + offsetBits
+
+  def offsetShift: Int =
+    0
+}

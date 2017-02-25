@@ -20,8 +20,6 @@
  */
 package pl.tarsa.matchfinders.interpolation
 
-import java.util.Comparator
-
 import pl.tarsa.matchfinders.model.Match
 
 import scala.collection.mutable
@@ -30,16 +28,16 @@ class Interpolator {
   def run(data: Array[Byte],
           minMatch: Int,
           maxMatch: Int,
-          filteredMatches: IndexedSeq[Match]): Seq[Match] = {
+          filteredMatches: Array[Match.Packed]): Array[Match.Packed] = {
     // variables
-    val interpolatedMatches = mutable.Buffer.empty[Match]
-    val comparator: Comparator[Match] = (a, b) => a.length.compareTo(b.length)
-    val currentFilteredMatches = Array.ofDim[Match](maxMatch - minMatch + 1)
+    val interpolatedMatchesArrayBuilder =
+      mutable.ArrayBuilder.make[Match.Packed]()
+    val currentFilteredMatches =
+      Array.ofDim[Match.Packed](maxMatch - minMatch + 1)
     val inheritedOffsets = Array.ofDim[Int](maxMatch + 1)
     val currentOffsets = Array.ofDim[Int](maxMatch + 1)
     var currentFilteredMatchesNumber = 0
     var currentFilteredMatchIndex = 0
-    var currentFilteredMatch: Match = null
     var inheritedMaxMatch = 0
     var currentMaxMatch = 0
     var position = 0
@@ -68,27 +66,25 @@ class Interpolator {
       currentMaxMatch = 0
       // reading filtered matches
       currentFilteredMatchesNumber = 0
-      while (nextMatchIndex < filteredMatches.size && filteredMatches(
-               nextMatchIndex).target == position) {
+      while (nextMatchIndex < filteredMatches.length && Match(
+               filteredMatches(nextMatchIndex)).position == position) {
         currentFilteredMatches(currentFilteredMatchesNumber) = filteredMatches(
           nextMatchIndex)
         currentFilteredMatchesNumber += 1
         nextMatchIndex += 1
       }
       // sorting filtered matches
-      java.util.Arrays.sort(currentFilteredMatches,
-                            0,
-                            currentFilteredMatchesNumber,
-                            comparator)
+      java.util.Arrays
+        .sort(currentFilteredMatches, 0, currentFilteredMatchesNumber)
       // unrolling filtered matches
       currentFilteredMatchIndex = 0
       matchLength = minMatch
       while (currentFilteredMatchIndex < currentFilteredMatchesNumber) {
-        currentFilteredMatch = currentFilteredMatches(
-          currentFilteredMatchIndex)
+        val currentFilteredMatch = Match(
+          currentFilteredMatches(currentFilteredMatchIndex))
         val samePositionAndLength = currentFilteredMatchIndex > 0 &&
-          currentFilteredMatch.length == currentFilteredMatches(
-            currentFilteredMatchIndex - 1).length
+            currentFilteredMatch.length == Match(
+              currentFilteredMatches(currentFilteredMatchIndex - 1)).length
         offset = position - currentFilteredMatch.source
         val matchWasInherited =
           currentFilteredMatch.length <= inheritedMaxMatch &&
@@ -118,9 +114,14 @@ class Interpolator {
       // save current matches
       matchLength = minMatch
       while (matchLength <= currentMaxMatch) {
-        interpolatedMatches += Match(position - currentOffsets(matchLength),
-                                     position,
-                                     matchLength)
+        interpolatedMatchesArrayBuilder +=
+          Match
+            .fromPositionLengthOffset(
+              position,
+              matchLength,
+              currentOffsets(matchLength)
+            )
+            .packed
         matchLength += 1
       }
       // advance to next iteration
@@ -128,6 +129,6 @@ class Interpolator {
     }
     println(s"Non essential matches present = $nonEssentialOnesCounter")
     println("Non essential matches can be easily recomputed from others")
-    interpolatedMatches
+    interpolatedMatchesArrayBuilder.result()
   }
 }

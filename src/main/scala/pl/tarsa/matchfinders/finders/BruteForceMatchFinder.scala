@@ -26,8 +26,8 @@ class BruteForceMatchFinder extends MatchFinder {
   override def run(data: Array[Byte],
                    minMatch: Int,
                    maxMatch: Int,
-                   onAccepted: Match => Unit,
-                   onFiltered: Match => Unit): Unit = {
+                   onAccepted: Match.Packed => Unit,
+                   onFiltered: Match.Packed => Unit): Unit = {
     // variables
     val inheritedOffsets = Array.ofDim[Int](maxMatch + 1)
     val currentOffsets = Array.ofDim[Int](maxMatch + 1)
@@ -73,12 +73,12 @@ class BruteForceMatchFinder extends MatchFinder {
             inheritedOffsets(matchLength) == currentOffsets(matchLength)
         val higherHasSameOffset = matchLength < currentMaxMatch &&
             currentOffsets(matchLength) == currentOffsets(matchLength + 1)
-        val theMatch =
-          Match(position - currentOffsets(matchLength), position, matchLength)
+        val packedMatch =
+          makePacked(position, matchLength, currentOffsets(matchLength))
         if (currentIsInherited || higherHasSameOffset) {
-          onFiltered(theMatch)
+          onFiltered(packedMatch)
         } else {
-          onAccepted(theMatch)
+          onAccepted(packedMatch)
         }
         matchLength -= 1
       }
@@ -101,4 +101,9 @@ class BruteForceMatchFinder extends MatchFinder {
     }
     validatedMatchLength
   }
+
+  private def makePacked(position: Int,
+                         length: Int,
+                         offset: Int): Match.Packed =
+    Match.fromPositionLengthOffset(position, length, offset).packed
 }

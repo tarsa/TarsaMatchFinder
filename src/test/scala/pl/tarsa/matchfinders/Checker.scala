@@ -35,9 +35,9 @@ object Checker {
     val minMatch = 2
     val maxMatch = 3
 
-    val bruteForceAccepted = mutable.Buffer.empty[Match]
+    val bruteForceAcceptedBuilder = mutable.ArrayBuilder.make[Match.Packed]()
     var bruteForceFilteredCounter = 0
-    val tarsaAccepted = mutable.Buffer.empty[Match]
+    val tarsaAcceptedBuilder = mutable.ArrayBuilder.make[Match.Packed]()
     var tarsaFilteredCounter = 0
 
     timed("TarsaMatchFinder.run") {
@@ -45,7 +45,7 @@ object Checker {
         .run(data,
              minMatch,
              maxMatch,
-             tarsaAccepted += _,
+             tarsaAcceptedBuilder += _,
              _ => tarsaFilteredCounter += 1)
     }
 
@@ -53,9 +53,12 @@ object Checker {
       new BruteForceMatchFinder().run(data,
                                       minMatch,
                                       maxMatch,
-                                      bruteForceAccepted += _,
+                                      bruteForceAcceptedBuilder += _,
                                       _ => bruteForceFilteredCounter += 1)
     }
+
+    val bruteForceAcceptedArray = bruteForceAcceptedBuilder.result()
+    val tarsaAcceptedArray = tarsaAcceptedBuilder.result()
 
 //    (bruteForceAccepted.toList.map(("Accepted (BF)", _)) ++
 //      tarsaAccepted.toList.map(("Accepted (T)", _))).toArray
@@ -67,29 +70,31 @@ object Checker {
 //    }
 
     val onlyInBruteForceAccepted =
-      (bruteForceAccepted.toSet -- tarsaAccepted.toSet).toList
+      (bruteForceAcceptedArray.toSet -- tarsaAcceptedArray.toSet).toArray
+    java.util.Arrays.sort(onlyInBruteForceAccepted)
 
     if (onlyInBruteForceAccepted.nonEmpty) {
       println("Only in brute force accepted:")
-      onlyInBruteForceAccepted
-        .sortBy(m => (m.target, m.length))
-        .foreach(println)
+      onlyInBruteForceAccepted.foreach { packedMatch =>
+        println(Match(packedMatch))
+      }
     }
 
     val onlyInTarsaAccepted =
-      (tarsaAccepted.toSet -- bruteForceAccepted.toSet).toList
+      (tarsaAcceptedArray.toSet -- bruteForceAcceptedArray.toSet).toArray
+    java.util.Arrays.sort(onlyInTarsaAccepted)
 
     if (onlyInTarsaAccepted.nonEmpty) {
       println("Only in Tarsa accepted:")
-      onlyInTarsaAccepted
-        .sortBy(m => (m.target, m.length))
-        .foreach(println)
+      onlyInTarsaAccepted.foreach { packedMatch =>
+        println(Match(packedMatch))
+      }
     }
 
-    println(s"Brute Force accepted: ${bruteForceAccepted.size}")
+    println(s"Brute Force accepted: ${bruteForceAcceptedArray.length}")
     println(s"Brute Force filtered: $bruteForceFilteredCounter")
 
-    println(s"Tarsa accepted: ${tarsaAccepted.size}")
+    println(s"Tarsa accepted: ${tarsaAcceptedArray.length}")
     println(s"Tarsa filtered: $tarsaFilteredCounter")
   }
 

@@ -26,7 +26,7 @@ class Verifier {
   def run(data: Array[Byte],
           minMatch: Int,
           maxMatch: Int,
-          matches: IndexedSeq[Match]): Boolean = {
+          matches: Array[Match.Packed]): Boolean = {
     // variables
     var matchIndex = 0
     var currentMaxMatch = 0
@@ -44,11 +44,11 @@ class Verifier {
         while (currentMaxMatch < matchLength) {
           currentMaxMatch += 1
           if (currentMaxMatch >= minMatch) {
-            val inputMatch = matches(matchIndex)
+            val inputMatch = Match(matches(matchIndex))
             matchIndex += 1
-            assert(inputMatch.source == position - offset)
-            assert(inputMatch.target == position)
+            assert(inputMatch.position == position)
             assert(inputMatch.length == currentMaxMatch)
+            assert(inputMatch.offset == offset)
           }
         }
         offset += 1
@@ -56,7 +56,7 @@ class Verifier {
       // advance to next iteration
       position += 1
     }
-    matchIndex == matches.size
+    matchIndex == matches.length
   }
 
   private def computeMatchLength(data: Array[Byte],

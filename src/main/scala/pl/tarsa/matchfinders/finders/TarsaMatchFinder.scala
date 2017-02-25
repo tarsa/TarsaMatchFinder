@@ -28,8 +28,8 @@ class TarsaMatchFinder extends MatchFinder {
   override def run(data: Array[Byte],
                    minMatch: Int,
                    maxMatch: Int,
-                   onAccepted: Match => Unit,
-                   onFiltered: Match => Unit): Unit = {
+                   onAccepted: Match.Packed => Unit,
+                   onFiltered: Match.Packed => Unit): Unit = {
     val size = data.length
     val suffixArray = Array.tabulate[Int](size)(identity)
     val suffixArrayAuxiliary = Array.ofDim[Int](size)
@@ -51,15 +51,15 @@ class TarsaMatchFinder extends MatchFinder {
         val lastIndex = startingIndex + unsafeElementsNumber - 1
         if (suffixArray(lastIndex) + lcpLength == size) {
           if (lcpLength >= minMatch && startingIndex != lastIndex) {
-            val theMatch =
-              Match(suffixArray(lastIndex - 1),
-                    suffixArray(lastIndex),
-                    lcpLength)
+            val packedMatch =
+              makePacked(suffixArray(lastIndex - 1),
+                         suffixArray(lastIndex),
+                         lcpLength)
             if (suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0 &&
                 getValue(lastIndex - 1, -1) == getValue(lastIndex, -1)) {
-              onFiltered(theMatch)
+              onFiltered(packedMatch)
             } else {
-              onAccepted(theMatch)
+              onAccepted(packedMatch)
             }
           }
           unsafeElementsNumber - 1
@@ -73,37 +73,37 @@ class TarsaMatchFinder extends MatchFinder {
       }
       if (lcpLength >= minMatch && lcpLength < maxMatch) {
         for (index <- startingIndex + 1 until startingIndex + elementsNumber) {
-          val theMatch =
-            Match(suffixArray(index - 1), suffixArray(index), lcpLength)
+          val packedMatch =
+            makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
           if (lcpLength < maxMatch &&
               getValue(index - 1, lcpLength) == getValue(index, lcpLength)) {
-            onFiltered(theMatch)
+            onFiltered(packedMatch)
           } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
                      getValue(index - 1, -1) == getValue(index, -1)) {
-            onFiltered(theMatch)
+            onFiltered(packedMatch)
           } else {
-            onAccepted(theMatch)
+            onAccepted(packedMatch)
           }
         }
       } else if (lcpLength == maxMatch && elementsNumber != 0) {
         util.Arrays.fill(lastOccurences, -1)
         lastOccurences(getValue(startingIndex, lcpLength)) = startingIndex
         for (index <- startingIndex + 1 until startingIndex + elementsNumber) {
-          val theMatch =
-            Match(suffixArray(index - 1), suffixArray(index), lcpLength)
+          val packedMatch =
+            makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
           if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
               getValue(index - 1, -1) == getValue(index, -1)) {
-            onFiltered(theMatch)
+            onFiltered(packedMatch)
             val lastOccurence = lastOccurences(getValue(index, lcpLength))
             if (lastOccurence != -1 && getValue(index - 1, lcpLength) !=
                   getValue(index, lcpLength)) {
               onAccepted(
-                Match(suffixArray(lastOccurence) + 1,
-                      suffixArray(index) + 1,
-                      maxMatch))
+                makePacked(suffixArray(lastOccurence) + 1,
+                           suffixArray(index) + 1,
+                           maxMatch))
             }
           } else {
-            onAccepted(theMatch)
+            onAccepted(packedMatch)
           }
           lastOccurences(getValue(index, lcpLength)) = index
         }
@@ -139,4 +139,7 @@ class TarsaMatchFinder extends MatchFinder {
 
     go(0, 0, size)
   }
+
+  private def makePacked(source: Int, target: Int, length: Int): Match.Packed =
+    Match.fromPositionLengthSource(target, length, source).packed
 }

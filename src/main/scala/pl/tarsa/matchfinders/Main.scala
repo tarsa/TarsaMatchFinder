@@ -78,10 +78,16 @@ object Main {
     val minMatch = minString.toInt
     val maxMatch = maxString.toInt
     assert(1 <= minMatch && minMatch <= maxMatch && maxMatch <= 120)
-    val filteredMatchesBuffer = mutable.Buffer.empty[Match]
-    finder.run(input, minMatch, maxMatch, filteredMatchesBuffer += _, _ => ())
+    val filteredMatchesArrayBuilder = mutable.ArrayBuilder.make[Match.Packed]()
+    finder.run(input,
+               minMatch,
+               maxMatch,
+               filteredMatchesArrayBuilder += _,
+               _ => ())
+    val filteredMatchesArray = filteredMatchesArrayBuilder.result()
+    val filteredMatchesNumber = filteredMatchesArray.length
     val compactedMatchesDataArray = Array.ofDim[Byte](
-      headerSize + filteredMatchesBuffer.size * serializedMatchSize)
+      headerSize + filteredMatchesNumber * serializedMatchSize)
     val compactedMatchesDataBuffer =
       ByteBuffer.wrap(compactedMatchesDataArray).order(ByteOrder.BIG_ENDIAN)
     writeHeader(Header(compactedMatchesFileMagicNumber,
@@ -89,10 +95,11 @@ object Main {
                        minMatch.toShort,
                        maxMatch.toShort),
                 compactedMatchesDataBuffer)
-    filteredMatchesBuffer.toArray
-      .sortBy(_.target)
-      .foreach(writeMatch(_, compactedMatchesDataBuffer))
-    println(s"Filtered matches written = ${filteredMatchesBuffer.size}")
+    java.util.Arrays.sort(filteredMatchesArray)
+    filteredMatchesArray.foreach { packedMatch =>
+      writeMatch(Match(packedMatch), compactedMatchesDataBuffer)
+    }
+    println(s"Filtered matches written = $filteredMatchesNumber")
     Files.write(Paths.get(compactedFileName), compactedMatchesDataArray)
   }
 
@@ -108,14 +115,17 @@ object Main {
       readHeader(compactedMatchesDataBuffer)
     assert(magicNumber == compactedMatchesFileMagicNumber)
     assert(inputSize == input.length)
-    val filteredMatchesBuffer = mutable.ArrayBuffer.empty[Match]
+    val filteredMatchesArrayBuilder = mutable.ArrayBuilder.make[Match.Packed]()
     while (compactedMatchesDataBuffer.hasRemaining) {
-      filteredMatchesBuffer += readMatch(compactedMatchesDataBuffer)
+      filteredMatchesArrayBuilder +=
+        readMatch(compactedMatchesDataBuffer).packed
     }
-    val interpolatedMatches =
-      new Interpolator().run(input, minMatch, maxMatch, filteredMatchesBuffer)
+    val filteredMatchesArray = filteredMatchesArrayBuilder.result()
+    val interpolatedMatchesArray =
+      new Interpolator().run(input, minMatch, maxMatch, filteredMatchesArray)
+    val interpolatedMatchesNumber = interpolatedMatchesArray.length
     val interpolatedMatchesDataArray = Array.ofDim[Byte](
-      headerSize + interpolatedMatches.size * serializedMatchSize)
+      headerSize + interpolatedMatchesNumber * serializedMatchSize)
     val interpolatedMatchesDataBuffer =
       ByteBuffer.wrap(interpolatedMatchesDataArray).order(ByteOrder.BIG_ENDIAN)
     writeHeader(Header(interpolatedMatchesFileMagicNumber,
@@ -123,8 +133,10 @@ object Main {
                        minMatch,
                        maxMatch),
                 interpolatedMatchesDataBuffer)
-    interpolatedMatches.foreach(writeMatch(_, interpolatedMatchesDataBuffer))
-    println(s"Interpolated matches written = ${interpolatedMatches.size}")
+    interpolatedMatchesArray.foreach { packedMatch =>
+      writeMatch(Match(packedMatch), interpolatedMatchesDataBuffer)
+    }
+    println(s"Interpolated matches written = $interpolatedMatchesNumber")
     Files.write(Paths.get(interpolatedFileName), interpolatedMatchesDataArray)
   }
 
@@ -138,12 +150,15 @@ object Main {
       readHeader(interpolatedMatchesDataBuffer)
     assert(magicNumber == interpolatedMatchesFileMagicNumber)
     assert(inputSize == input.length)
-    val interpolatedMatchesBuffer = mutable.ArrayBuffer.empty[Match]
+    val interpolatedMatchesArrayBuilder =
+      mutable.ArrayBuilder.make[Match.Packed]()
     while (interpolatedMatchesDataBuffer.hasRemaining) {
-      interpolatedMatchesBuffer += readMatch(interpolatedMatchesDataBuffer)
+      interpolatedMatchesArrayBuilder +=
+        readMatch(interpolatedMatchesDataBuffer).packed
     }
+    val interpolatedMatchesArray = interpolatedMatchesArrayBuilder.result()
     val verificationOk =
-      new Verifier().run(input, minMatch, maxMatch, interpolatedMatchesBuffer)
+      new Verifier().run(input, minMatch, maxMatch, interpolatedMatchesArray)
     if (verificationOk) {
       println("Verification OK")
     } else {
@@ -167,15 +182,17 @@ object Main {
 
   def readMatch(dataBuffer: ByteBuffer): Match = {
     val result =
-      Match(dataBuffer.getInt(), dataBuffer.getInt, dataBuffer.getInt)
-    dataBuffer.getInt
+      Match.fromPositionLengthOffset(dataBuffer.getInt(),
+                                     dataBuffer.getInt(),
+                                     dataBuffer.getInt())
+    dataBuffer.getInt()
     result
   }
 
   def writeMatch(m: Match, dataBuffer: ByteBuffer): Unit = {
-    dataBuffer.putInt(m.source)
-    dataBuffer.putInt(m.target)
+    dataBuffer.putInt(m.position)
     dataBuffer.putInt(m.length)
+    dataBuffer.putInt(m.offset)
     dataBuffer.putInt(0)
   }
 
