@@ -80,11 +80,12 @@ object Main {
     assert(1 <= minMatch && minMatch <= maxMatch && maxMatch <= 120)
     val essentialMatchesArrayBuilder =
       mutable.ArrayBuilder.make[Match.Packed]()
+    var discardedMatchesCounter = 0
     finder.run(inputData,
                minMatch,
                maxMatch,
                essentialMatchesArrayBuilder += _,
-               _ => ())
+               _ => discardedMatchesCounter += 1)
     val essentialMatchesArray = essentialMatchesArrayBuilder.result()
     val essentialMatchesNumber = essentialMatchesArray.length
     val essentialMatchesDataArray = Array.ofDim[Byte](
@@ -100,7 +101,8 @@ object Main {
     essentialMatchesArray.foreach { packedMatch =>
       writeMatch(Match(packedMatch), essentialMatchesDataBuffer)
     }
-    println(s"Essential matches written = $essentialMatchesNumber")
+    println(s"Essential matches written       = $essentialMatchesNumber")
+    println(s"Non-essential matches discarded = $discardedMatchesCounter")
     Files.write(Paths.get(essentialMatchesFileName), essentialMatchesDataArray)
   }
 
