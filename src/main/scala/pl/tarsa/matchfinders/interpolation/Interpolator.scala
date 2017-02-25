@@ -58,8 +58,8 @@ class Interpolator {
       }
       inheritedMaxMatch = currentMaxMatch - 1
       // trying to extend longest match by one byte
-      if (currentMaxMatch == maxMatch && position + maxMatch < data.length &&
-          data(position - currentOffsets(maxMatch) + maxMatch - 1) ==
+      if (currentMaxMatch == maxMatch && position + maxMatch - 1 < data.length
+          && data(position - currentOffsets(maxMatch) + maxMatch - 1) ==
             data(position + maxMatch - 1)) {
         inheritedMaxMatch = maxMatch
         inheritedOffsets(maxMatch) = currentOffsets(maxMatch)
