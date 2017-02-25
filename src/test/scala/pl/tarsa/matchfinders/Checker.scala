@@ -30,10 +30,10 @@ import scala.collection.mutable
 object Checker {
   def main(args: Array[String]): Unit = {
     val data =
-      Files.readAllBytes(Paths.get("corpora", "workspace.xml"))
+      Files.readAllBytes(Paths.get("corpora", "enwik", "enwik6"))
 
-    val minMatch = 3
-    val maxMatch = 120
+    val minMatch = 2
+    val maxMatch = 3
 
     val bruteForceAccepted = mutable.Buffer.empty[Match]
     var bruteForceFilteredCounter = 0
@@ -87,9 +87,9 @@ object Checker {
     }
 
     println(s"Brute Force accepted: ${bruteForceAccepted.size}")
-    println(s"Tarsa accepted: ${tarsaAccepted.size}")
-
     println(s"Brute Force filtered: $bruteForceFilteredCounter")
+
+    println(s"Tarsa accepted: ${tarsaAccepted.size}")
     println(s"Tarsa filtered: $tarsaFilteredCounter")
   }
 
