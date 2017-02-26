@@ -20,8 +20,6 @@
  */
 package pl.tarsa.matchfinders.finders
 
-import java.util
-
 import pl.tarsa.matchfinders.model.Match
 
 object TarsaMatchFinder extends MatchFinder {
@@ -40,6 +38,8 @@ object TarsaMatchFinder extends MatchFinder {
                        maxMatch: Int,
                        onAccepted: Match.Packed => Unit,
                        onDiscarded: Match.Packed => Unit) {
+    private var index = 0
+
     private val size =
       inputData.length
 
@@ -48,8 +48,10 @@ object TarsaMatchFinder extends MatchFinder {
     private val suffixArrayAuxiliary =
       Array.ofDim[Int](size)
 
-    for (index <- 0 until size) {
+    index = 0
+    while (index < size) {
       suffixArray(index) = index
+      index += 1
     }
 
     private val backColumn =
@@ -57,8 +59,10 @@ object TarsaMatchFinder extends MatchFinder {
     private val backColumnAuxiliary =
       Array.ofDim[Byte](size)
 
-    for (index <- 1 until size) {
+    index = 1
+    while (index < size) {
       backColumn(index) = inputData(index - 1)
+      index += 1
     }
 
     private val activeColumn =
@@ -102,16 +106,14 @@ object TarsaMatchFinder extends MatchFinder {
             unsafeElementsNumber
           }
         }
-        for (index <- startingIndex until startingIndex + elementsNumber) {
+        index = startingIndex
+        while (index < startingIndex + elementsNumber) {
           activeColumn(index) = inputData(suffixArray(index) + lcpLength)
-        }
-        util.Arrays.fill(histogram, 0)
-        for (index <- startingIndex until startingIndex + elementsNumber) {
-          histogram(activeColumn(index) & 0xFF) += 1
+          index += 1
         }
         if (lcpLength >= minMatch) {
-          for (index <- startingIndex + 1 until
-                 startingIndex + elementsNumber) {
+          index = startingIndex + 1
+          while (index < startingIndex + elementsNumber) {
             val optimalMatch =
               makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
             if (lcpLength < maxMatch &&
@@ -123,17 +125,28 @@ object TarsaMatchFinder extends MatchFinder {
             } else {
               onAccepted(optimalMatch)
             }
+            index += 1
           }
         }
-        destinations(0) = startingIndex
-        for (i <- destinations.indices.tail) {
-          destinations(i) = destinations(i - 1) + histogram(i - 1)
+        java.util.Arrays.fill(histogram, 0)
+        index = startingIndex
+        while (index < startingIndex + elementsNumber) {
+          histogram(activeColumn(index) & 0xFF) += 1
+          index += 1
         }
-        for (index <- startingIndex until startingIndex + elementsNumber) {
+        destinations(0) = startingIndex
+        index = 1
+        while (index < destinations.length) {
+          destinations(index) = destinations(index - 1) + histogram(index - 1)
+          index += 1
+        }
+        index = startingIndex
+        while (index < startingIndex + elementsNumber) {
           val value = activeColumn(index) & 0xFF
           suffixArrayAuxiliary(destinations(value)) = suffixArray(index)
           backColumnAuxiliary(destinations(value)) = backColumn(index)
           destinations(value) += 1
+          index += 1
         }
         Array.copy(suffixArrayAuxiliary,
                    startingIndex,
@@ -147,22 +160,30 @@ object TarsaMatchFinder extends MatchFinder {
                    elementsNumber)
         val segments = segmentsStack(lcpLength)
         segments(0) = startingIndex
-        for (i <- segments.indices.tail) {
-          segments(i) = segments(i - 1) + histogram(i - 1)
+        index = 1
+        while (index < segments.length) {
+          segments(index) = segments(index - 1) + histogram(index - 1)
+          index += 1
         }
-        for (i <- 0 until 256) {
-          val segmentLength = segments(i + 1) - segments(i)
+        var segmentIndex = 0
+        while (segmentIndex < 256) {
+          val segmentLength =
+            segments(segmentIndex + 1) - segments(segmentIndex)
           if (segmentLength > 1) {
-            radixSearchCached(lcpLength + 1, segments(i), segmentLength)
+            radixSearchCached(lcpLength + 1,
+                              segments(segmentIndex),
+                              segmentLength)
           }
+          segmentIndex += 1
         }
       } else {
         assert(lcpLength == maxMatch)
-        for (index <- startingIndex + 1 until
-               startingIndex + unsafeElementsNumber) {
+        index = startingIndex + 1
+        while (index < startingIndex + unsafeElementsNumber) {
           val optimalMatch =
             makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
           onAccepted(optimalMatch)
+          index += 1
         }
       }
     }
@@ -191,13 +212,9 @@ object TarsaMatchFinder extends MatchFinder {
             unsafeElementsNumber
           }
         }
-        util.Arrays.fill(histogram, 0)
-        for (index <- startingIndex until startingIndex + elementsNumber) {
-          histogram(getValue(index, lcpLength)) += 1
-        }
         if (lcpLength >= minMatch) {
-          for (index <- startingIndex + 1 until
-                 startingIndex + elementsNumber) {
+          index = startingIndex + 1
+          while (index < startingIndex + elementsNumber) {
             val optimalMatch =
               makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
             if (lcpLength < maxMatch &&
@@ -209,16 +226,27 @@ object TarsaMatchFinder extends MatchFinder {
             } else {
               onAccepted(optimalMatch)
             }
+            index += 1
           }
         }
-        destinations(0) = startingIndex
-        for (i <- destinations.indices.tail) {
-          destinations(i) = destinations(i - 1) + histogram(i - 1)
+        java.util.Arrays.fill(histogram, 0)
+        index = startingIndex
+        while (index < startingIndex + elementsNumber) {
+          histogram(getValue(index, lcpLength)) += 1
+          index += 1
         }
-        for (index <- startingIndex until startingIndex + elementsNumber) {
+        destinations(0) = startingIndex
+        index = 1
+        while (index < destinations.length) {
+          destinations(index) = destinations(index - 1) + histogram(index - 1)
+          index += 1
+        }
+        index = startingIndex
+        while (index < startingIndex + elementsNumber) {
           val value = getValue(index, lcpLength)
           suffixArrayAuxiliary(destinations(value)) = suffixArray(index)
           destinations(value) += 1
+          index += 1
         }
         Array.copy(suffixArrayAuxiliary,
                    startingIndex,
@@ -227,22 +255,28 @@ object TarsaMatchFinder extends MatchFinder {
                    elementsNumber)
         val segments = segmentsStack(lcpLength)
         segments(0) = startingIndex
-        for (i <- segments.indices.tail) {
-          segments(i) = segments(i - 1) + histogram(i - 1)
+        index = 1
+        while (index < segments.length) {
+          segments(index) = segments(index - 1) + histogram(index - 1)
+          index += 1
         }
-        for (i <- 0 until 256) {
-          val segmentLength = segments(i + 1) - segments(i)
+        var segmentIndex = 0
+        while (segmentIndex < 256) {
+          val segmentLength =
+            segments(segmentIndex + 1) - segments(segmentIndex)
           if (segmentLength > 1) {
-            radixSearch(lcpLength + 1, segments(i), segmentLength)
+            radixSearch(lcpLength + 1, segments(segmentIndex), segmentLength)
           }
+          segmentIndex += 1
         }
       } else {
         assert(lcpLength == maxMatch)
-        for (index <- startingIndex + 1 until
-               startingIndex + unsafeElementsNumber) {
+        index = startingIndex + 1
+        while (index < startingIndex + unsafeElementsNumber) {
           val optimalMatch =
             makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
           onAccepted(optimalMatch)
+          index += 1
         }
       }
     }
