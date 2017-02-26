@@ -33,12 +33,15 @@ object TarsaMatchFinder extends MatchFinder {
 
   private val CachedRadixSearchThreshold = 1234
 
+  private val RemappedAlphabetRadixSearchThreshold = 30
+
   private class Engine(inputData: Array[Byte],
                        minMatch: Int,
                        maxMatch: Int,
                        onAccepted: Match.Packed => Unit,
                        onDiscarded: Match.Packed => Unit) {
     private var index = 0
+    private var marker = 1L
 
     private val size =
       inputData.length
@@ -71,6 +74,11 @@ object TarsaMatchFinder extends MatchFinder {
     private val histogram =
       Array.ofDim[Int](256)
     private val destinations =
+      Array.ofDim[Int](256)
+
+    private val markers =
+      Array.ofDim[Long](256)
+    private val alphabetMapping =
       Array.ofDim[Int](256)
 
     private val segmentsStack =
@@ -191,7 +199,9 @@ object TarsaMatchFinder extends MatchFinder {
     private def radixSearch(lcpLength: Int,
                             startingIndex: Int,
                             unsafeElementsNumber: Int): Unit = {
-      if (lcpLength < maxMatch) {
+      if (unsafeElementsNumber < RemappedAlphabetRadixSearchThreshold) {
+        radixSearchRemapped(lcpLength, startingIndex, unsafeElementsNumber)
+      } else if (lcpLength < maxMatch) {
         val elementsNumber = {
           val lastIndex = startingIndex + unsafeElementsNumber - 1
           if (suffixArray(lastIndex) + lcpLength == size) {
@@ -266,6 +276,113 @@ object TarsaMatchFinder extends MatchFinder {
             segments(segmentIndex + 1) - segments(segmentIndex)
           if (segmentLength > 1) {
             radixSearch(lcpLength + 1, segments(segmentIndex), segmentLength)
+          }
+          segmentIndex += 1
+        }
+      } else {
+        assert(lcpLength == maxMatch)
+        index = startingIndex + 1
+        while (index < startingIndex + unsafeElementsNumber) {
+          val optimalMatch =
+            makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
+          onAccepted(optimalMatch)
+          index += 1
+        }
+      }
+    }
+
+    private def radixSearchRemapped(lcpLength: Int,
+                                    startingIndex: Int,
+                                    unsafeElementsNumber: Int): Unit = {
+      if (lcpLength < maxMatch) {
+        val elementsNumber = {
+          val lastIndex = startingIndex + unsafeElementsNumber - 1
+          if (suffixArray(lastIndex) + lcpLength == size) {
+            if (lcpLength >= minMatch && startingIndex != lastIndex) {
+              val optimalMatch =
+                makePacked(suffixArray(lastIndex - 1),
+                           suffixArray(lastIndex),
+                           lcpLength)
+              if (suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0
+                  && getValue(lastIndex - 1, -1) == getValue(lastIndex, -1)) {
+                onDiscarded(optimalMatch)
+              } else {
+                onAccepted(optimalMatch)
+              }
+            }
+            unsafeElementsNumber - 1
+          } else {
+            unsafeElementsNumber
+          }
+        }
+        if (lcpLength >= minMatch) {
+          index = startingIndex + 1
+          while (index < startingIndex + elementsNumber) {
+            val optimalMatch =
+              makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
+            if (lcpLength < maxMatch &&
+                getValue(index - 1, lcpLength) == getValue(index, lcpLength)) {
+              onDiscarded(optimalMatch)
+            } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
+                       getValue(index - 1, -1) == getValue(index, -1)) {
+              onDiscarded(optimalMatch)
+            } else {
+              onAccepted(optimalMatch)
+            }
+            index += 1
+          }
+        }
+        var alphabetSize = 0
+        index = startingIndex
+        while (index < startingIndex + elementsNumber) {
+          val value = getValue(index, lcpLength)
+          if (markers(value) == marker) {
+            val mappedValue = alphabetMapping(value)
+            histogram(mappedValue) += 1
+          } else {
+            markers(value) = marker
+            val mappedValue = alphabetSize
+            alphabetSize += 1
+            alphabetMapping(value) = mappedValue
+            histogram(mappedValue) = 1
+          }
+          index += 1
+        }
+        marker += 1
+        destinations(0) = startingIndex
+        index = 1
+        while (index < alphabetSize) {
+          destinations(index) = destinations(index - 1) + histogram(index - 1)
+          index += 1
+        }
+        index = startingIndex
+        while (index < startingIndex + elementsNumber) {
+          val mappedValue = alphabetMapping(getValue(index, lcpLength))
+          assert(mappedValue < alphabetSize)
+          suffixArrayAuxiliary(destinations(mappedValue)) = suffixArray(index)
+          destinations(mappedValue) += 1
+          index += 1
+        }
+        Array.copy(suffixArrayAuxiliary,
+                   startingIndex,
+                   suffixArray,
+                   startingIndex,
+                   elementsNumber)
+        val segments = segmentsStack(lcpLength)
+        segments(0) = startingIndex
+        index = 1
+        while (index <= alphabetSize) {
+          segments(index) = segments(index - 1) + histogram(index - 1)
+          index += 1
+        }
+        var segmentIndex = 0
+        while (segmentIndex < alphabetSize) {
+          val segmentLength =
+            segments(segmentIndex + 1) - segments(segmentIndex)
+          if (segmentLength > 1) {
+            radixSearchRemapped(lcpLength + 1,
+                                segments(segmentIndex),
+                                segmentLength)
           }
           segmentIndex += 1
         }
