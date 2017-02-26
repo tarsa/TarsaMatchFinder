@@ -22,8 +22,8 @@ and length
 An optimal match that cannot be interpolated from other essential matches 
 
 ### Match interpolation
-Deriving of optimal matches from essential matches by means of match inheritance
-and match shortening
+Deriving of missing optimal matches from essential matches by means of match
+inheritance and match shortening
 
 ### Match inheritance
 Creating a new match from a match with lower position and higher length:
