@@ -24,6 +24,7 @@ import java.nio.file.{Files, Paths}
 
 import pl.tarsa.matchfinders.finders.{BruteForceMatchFinder, TarsaMatchFinder}
 import pl.tarsa.matchfinders.model.Match
+import pl.tarsa.util.Timed
 
 import scala.collection.mutable
 
@@ -40,7 +41,7 @@ object Checker {
     val tarsaAcceptedBuilder = mutable.ArrayBuilder.make[Match.Packed]()
     var tarsaDiscardedCounter = 0
 
-    timed("TarsaMatchFinder.run") {
+    Timed("TarsaMatchFinder.run") {
       TarsaMatchFinder.run(data,
                            minMatch,
                            maxMatch,
@@ -48,7 +49,7 @@ object Checker {
                            _ => tarsaDiscardedCounter += 1)
     }
 
-    timed("BruteForceMatchFinder.run") {
+    Timed("BruteForceMatchFinder.run") {
       BruteForceMatchFinder.run(data,
                                 minMatch,
                                 maxMatch,
@@ -123,14 +124,6 @@ object Checker {
 
   def echo(string: String): Unit =
     () // println(string)
-
-  def timed[T](description: String)(action: => T): T = {
-    val startTime = System.currentTimeMillis()
-    val result = action
-    val endTime = System.currentTimeMillis()
-    println(s"$description took ${endTime - startTime} ms")
-    result
-  }
 
   def isSorted(matches: Array[Match.Packed]): Boolean =
     matches.sameElements(matches.sorted)
