@@ -33,7 +33,7 @@ object TarsaMatchFinder extends MatchFinder {
 
   private val CachedColumnsRadixSearchThreshold = 1234
 
-  private val RemappedAlphabetRadixSearchThreshold = 30
+  private val RemappedAlphabetRadixSearchThreshold = 70
 
   private class Engine(inputData: Array[Byte],
                        minMatch: Int,
@@ -81,8 +81,8 @@ object TarsaMatchFinder extends MatchFinder {
     private val alphabetMapping =
       Array.ofDim[Int](256)
 
-    private val segmentsStack =
-      Array.ofDim[Int](maxMatch, 257)
+    private val segments =
+      Array.ofDim[Int](maxMatch * (256 + 1))
 
     private def getValue(index: Int, depth: Int): Int = {
       inputData(suffixArray(index) + depth) & 0xFF
@@ -90,9 +90,13 @@ object TarsaMatchFinder extends MatchFinder {
 
     private def radixSearchCached(lcpLength: Int,
                                   startingIndex: Int,
-                                  unsafeElementsNumber: Int): Unit = {
+                                  unsafeElementsNumber: Int,
+                                  segmentsFrameStartingIndex: Int): Unit = {
       if (unsafeElementsNumber < CachedColumnsRadixSearchThreshold) {
-        radixSearch(lcpLength, startingIndex, unsafeElementsNumber)
+        radixSearch(lcpLength,
+                    startingIndex,
+                    unsafeElementsNumber,
+                    segmentsFrameStartingIndex)
       } else if (lcpLength < maxMatch) {
         val elementsNumber = {
           val lastIndex = startingIndex + unsafeElementsNumber - 1
@@ -166,21 +170,23 @@ object TarsaMatchFinder extends MatchFinder {
                    backColumn,
                    startingIndex,
                    elementsNumber)
-        val segments = segmentsStack(lcpLength)
-        segments(0) = startingIndex
-        index = 1
-        while (index < segments.length) {
-          segments(index) = segments(index - 1) + histogram(index - 1)
+        index = segmentsFrameStartingIndex
+        segments(index) = startingIndex
+        index += 1
+        while (index < segmentsFrameStartingIndex + 256 + 1) {
+          segments(index) = segments(index - 1) +
+              histogram(index - 1 - segmentsFrameStartingIndex)
           index += 1
         }
-        var segmentIndex = 0
-        while (segmentIndex < 256) {
+        var segmentIndex = segmentsFrameStartingIndex
+        while (segmentIndex < segmentsFrameStartingIndex + 256) {
           val segmentLength =
             segments(segmentIndex + 1) - segments(segmentIndex)
           if (segmentLength > 1) {
             radixSearchCached(lcpLength + 1,
                               segments(segmentIndex),
-                              segmentLength)
+                              segmentLength,
+                              segmentsFrameStartingIndex + 256 + 1)
           }
           segmentIndex += 1
         }
@@ -198,9 +204,13 @@ object TarsaMatchFinder extends MatchFinder {
 
     private def radixSearch(lcpLength: Int,
                             startingIndex: Int,
-                            unsafeElementsNumber: Int): Unit = {
+                            unsafeElementsNumber: Int,
+                            segmentsFrameStartingIndex: Int): Unit = {
       if (unsafeElementsNumber < RemappedAlphabetRadixSearchThreshold) {
-        radixSearchRemapped(lcpLength, startingIndex, unsafeElementsNumber)
+        radixSearchRemapped(lcpLength,
+                            startingIndex,
+                            unsafeElementsNumber,
+                            segmentsFrameStartingIndex)
       } else if (lcpLength < maxMatch) {
         val elementsNumber = {
           val lastIndex = startingIndex + unsafeElementsNumber - 1
@@ -263,19 +273,23 @@ object TarsaMatchFinder extends MatchFinder {
                    suffixArray,
                    startingIndex,
                    elementsNumber)
-        val segments = segmentsStack(lcpLength)
-        segments(0) = startingIndex
-        index = 1
-        while (index < segments.length) {
-          segments(index) = segments(index - 1) + histogram(index - 1)
+        index = segmentsFrameStartingIndex
+        segments(index) = startingIndex
+        index += 1
+        while (index < segmentsFrameStartingIndex + 256 + 1) {
+          segments(index) = segments(index - 1) +
+              histogram(index - 1 - segmentsFrameStartingIndex)
           index += 1
         }
-        var segmentIndex = 0
-        while (segmentIndex < 256) {
+        var segmentIndex = segmentsFrameStartingIndex
+        while (segmentIndex < segmentsFrameStartingIndex + 256) {
           val segmentLength =
             segments(segmentIndex + 1) - segments(segmentIndex)
           if (segmentLength > 1) {
-            radixSearch(lcpLength + 1, segments(segmentIndex), segmentLength)
+            radixSearch(lcpLength + 1,
+                        segments(segmentIndex),
+                        segmentLength,
+                        segmentsFrameStartingIndex + 256 + 1)
           }
           segmentIndex += 1
         }
@@ -293,7 +307,8 @@ object TarsaMatchFinder extends MatchFinder {
 
     private def radixSearchRemapped(lcpLength: Int,
                                     startingIndex: Int,
-                                    unsafeElementsNumber: Int): Unit = {
+                                    unsafeElementsNumber: Int,
+                                    segmentsFrameStartingIndex: Int): Unit = {
       if (lcpLength < maxMatch) {
         val elementsNumber = {
           val lastIndex = startingIndex + unsafeElementsNumber - 1
@@ -368,21 +383,23 @@ object TarsaMatchFinder extends MatchFinder {
                    suffixArray,
                    startingIndex,
                    elementsNumber)
-        val segments = segmentsStack(lcpLength)
-        segments(0) = startingIndex
-        index = 1
-        while (index <= alphabetSize) {
-          segments(index) = segments(index - 1) + histogram(index - 1)
+        index = segmentsFrameStartingIndex
+        segments(index) = startingIndex
+        index += 1
+        while (index < segmentsFrameStartingIndex + alphabetSize + 1) {
+          segments(index) = segments(index - 1) +
+              histogram(index - 1 - segmentsFrameStartingIndex)
           index += 1
         }
-        var segmentIndex = 0
-        while (segmentIndex < alphabetSize) {
+        var segmentIndex = segmentsFrameStartingIndex
+        while (segmentIndex < segmentsFrameStartingIndex + alphabetSize) {
           val segmentLength =
             segments(segmentIndex + 1) - segments(segmentIndex)
           if (segmentLength > 1) {
             radixSearchRemapped(lcpLength + 1,
                                 segments(segmentIndex),
-                                segmentLength)
+                                segmentLength,
+                                segmentsFrameStartingIndex + alphabetSize + 1)
           }
           segmentIndex += 1
         }
@@ -399,7 +416,7 @@ object TarsaMatchFinder extends MatchFinder {
     }
 
     def result(): Unit =
-      radixSearchCached(0, 0, size)
+      radixSearchCached(0, 0, size, 0)
   }
 
   private def makePacked(source: Int, target: Int, length: Int): Match.Packed =
