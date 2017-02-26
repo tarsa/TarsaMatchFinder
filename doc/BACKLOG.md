@@ -8,6 +8,9 @@ List of to-do items
 
 ### Algorithm quality and resource usage
 - make segments stack in TarsaMatchFinder contiguous to improve CPU caching
+- use LCP-aware insertion sort for smallest segments in TarsaMatchFinder
+- cache more columns (4 instead of 1) at once during cached radix sort passes
+- maybe use cached back column in more radix sort variants
 - do essential matches sorting as a separate phase
 - process files in streaming way where feasible
 - make multi-threaded TarsaMatchFinder
