@@ -14,6 +14,8 @@ List of to-do items
 - do essential matches sorting as a separate phase
 - process files in streaming way where feasible
 - make multi-threaded TarsaMatchFinder
+- make genetic algorithm to find best parameters (thresholds) for
+  TarsaMatchFinder
 - better filtering of matches if it's feasible for both match finders
   - ideally the number of essential matches should be less than the number of 
     input bytes and then interpolator should be able to reconstruct the
