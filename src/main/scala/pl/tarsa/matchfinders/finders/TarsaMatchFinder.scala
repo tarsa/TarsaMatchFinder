@@ -31,7 +31,7 @@ object TarsaMatchFinder extends MatchFinder {
     new Engine(inputData, minMatch, maxMatch, onAccepted, onDiscarded).result()
   }
 
-  private val CachedRadixSearchThreshold = 1234
+  private val CachedColumnsRadixSearchThreshold = 1234
 
   private val RemappedAlphabetRadixSearchThreshold = 30
 
@@ -91,7 +91,7 @@ object TarsaMatchFinder extends MatchFinder {
     private def radixSearchCached(lcpLength: Int,
                                   startingIndex: Int,
                                   unsafeElementsNumber: Int): Unit = {
-      if (unsafeElementsNumber < CachedRadixSearchThreshold) {
+      if (unsafeElementsNumber < CachedColumnsRadixSearchThreshold) {
         radixSearch(lcpLength, startingIndex, unsafeElementsNumber)
       } else if (lcpLength < maxMatch) {
         val elementsNumber = {
