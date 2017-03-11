@@ -182,7 +182,7 @@ object TarsaMatchFinder extends MatchFinder {
         index += 1
         while (index < segmentsFrameStartingIndex + 256 + 1) {
           segments(index) = segments(index - 1) +
-              histogram(index - 1 - segmentsFrameStartingIndex)
+            histogram(index - 1 - segmentsFrameStartingIndex)
           index += 1
         }
         var segmentIndex = segmentsFrameStartingIndex
@@ -285,7 +285,7 @@ object TarsaMatchFinder extends MatchFinder {
         index += 1
         while (index < segmentsFrameStartingIndex + 256 + 1) {
           segments(index) = segments(index - 1) +
-              histogram(index - 1 - segmentsFrameStartingIndex)
+            histogram(index - 1 - segmentsFrameStartingIndex)
           index += 1
         }
         var segmentIndex = segmentsFrameStartingIndex
@@ -397,7 +397,7 @@ object TarsaMatchFinder extends MatchFinder {
         index += 1
         while (index < segmentsFrameStartingIndex + alphabetSize + 1) {
           segments(index) = segments(index - 1) +
-              histogram(index - 1 - segmentsFrameStartingIndex)
+            histogram(index - 1 - segmentsFrameStartingIndex)
           index += 1
         }
         var segmentIndex = segmentsFrameStartingIndex
