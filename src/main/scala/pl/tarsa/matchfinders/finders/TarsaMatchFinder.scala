@@ -22,6 +22,8 @@ package pl.tarsa.matchfinders.finders
 
 import pl.tarsa.matchfinders.model.Match
 
+import scala.annotation.tailrec
+
 object TarsaMatchFinder extends MatchFinder {
   override def run(inputData: Array[Byte],
                    minMatch: Int,
@@ -34,6 +36,8 @@ object TarsaMatchFinder extends MatchFinder {
   private val CachedColumnsRadixSearchThreshold = 1234
 
   private val RemappedAlphabetRadixSearchThreshold = 70
+
+  private val LcpAwareInsertionSortThreshold = 10
 
   private class Engine(inputData: Array[Byte],
                        minMatch: Int,
@@ -83,6 +87,9 @@ object TarsaMatchFinder extends MatchFinder {
 
     private val segments =
       Array.ofDim[Int](maxMatch * (256 + 1))
+
+    private val lcpArray =
+      Array.ofDim[Int](LcpAwareInsertionSortThreshold)
 
     private def getValue(index: Int, depth: Int): Int = {
       inputData(suffixArray(index) + depth) & 0xFF
@@ -309,7 +316,9 @@ object TarsaMatchFinder extends MatchFinder {
                                     startingIndex: Int,
                                     unsafeElementsNumber: Int,
                                     segmentsFrameStartingIndex: Int): Unit = {
-      if (lcpLength < maxMatch) {
+      if (unsafeElementsNumber < LcpAwareInsertionSortThreshold) {
+        lcpAwareInsertionSort(lcpLength, startingIndex, unsafeElementsNumber)
+      } else if (lcpLength < maxMatch) {
         val elementsNumber = {
           val lastIndex = startingIndex + unsafeElementsNumber - 1
           if (suffixArray(lastIndex) + lcpLength == size) {
@@ -412,6 +421,201 @@ object TarsaMatchFinder extends MatchFinder {
           onAccepted(optimalMatch)
           index += 1
         }
+      }
+    }
+
+    private def lcpAwareInsertionSort(commonLcp: Int,
+                                      startingIndex: Int,
+                                      elementsNumber: Int): Unit = {
+      lcpArray(0) = commonLcp
+      var sortedElements = 1
+      while (sortedElements < elementsNumber) {
+        val suffixToInsert = suffixArray(startingIndex + sortedElements)
+        val insertionPoint =
+          findInsertionPoint(sortedElements - 1,
+                             startingIndex,
+                             suffixToInsert,
+                             commonLcp)
+        index = sortedElements
+        while (index > insertionPoint) {
+          suffixArray(startingIndex + index) = suffixArray(
+            startingIndex + index - 1)
+          lcpArray(index) = lcpArray(index - 1)
+          index -= 1
+        }
+        suffixArray(startingIndex + insertionPoint) = suffixToInsert
+        if (insertionPoint > 0) {
+          lcpArray(insertionPoint - 1) = computeLcp(
+            suffixArray(startingIndex + insertionPoint - 1),
+            suffixArray(startingIndex + insertionPoint),
+            commonLcp)
+        }
+        lcpArray(insertionPoint) = {
+          if (insertionPoint == sortedElements) {
+            commonLcp
+          } else {
+            computeLcp(suffixArray(startingIndex + insertionPoint + 1),
+                       suffixArray(startingIndex + insertionPoint),
+                       commonLcp)
+          }
+        }
+        if (insertionPoint > 0) {
+          assert(
+            suffixesOrdered(suffixArray(startingIndex + insertionPoint - 1),
+                            suffixArray(startingIndex + insertionPoint),
+                            lcpArray(insertionPoint - 1)))
+        }
+        if (insertionPoint < sortedElements) {
+          assert(
+            suffixesOrdered(suffixArray(startingIndex + insertionPoint),
+                            suffixArray(startingIndex + insertionPoint + 1),
+                            lcpArray(insertionPoint)))
+        }
+
+        var currentMatchLength = -1
+        if (insertionPoint > 0) {
+          currentMatchLength = lcpArray(insertionPoint - 1)
+        }
+        if (lcpArray(insertionPoint) > currentMatchLength) {
+          currentMatchLength = lcpArray(insertionPoint)
+        }
+        assert(currentMatchLength >= commonLcp)
+        var prevBestMatchLength = -1
+        var prevBestMatchSource = -1
+        var lexSmallerScanIndex = insertionPoint - 1
+        var lexSmallerScanLcp = -1
+        if (lexSmallerScanIndex >= 0) {
+          lexSmallerScanLcp = lcpArray(lexSmallerScanIndex)
+        }
+        var lexGreaterScanIndex = insertionPoint + 1
+        var lexGreaterScanLcp = -1
+        if (lexGreaterScanIndex <= sortedElements) {
+          lexGreaterScanLcp = lcpArray(lexGreaterScanIndex - 1)
+        }
+        val lcpLowerLimit = math.max(minMatch, commonLcp)
+        while (currentMatchLength >= lcpLowerLimit) {
+          var currentMatchSource = -1
+          while (lexSmallerScanLcp == currentMatchLength) {
+            val lexSmallerScanSource = suffixArray(
+              startingIndex + lexSmallerScanIndex)
+            if (lexSmallerScanSource > currentMatchSource) {
+              currentMatchSource = lexSmallerScanSource
+            }
+            lexSmallerScanIndex -= 1
+            lexSmallerScanLcp = {
+              if (lexSmallerScanIndex >= 0) {
+                computeLcp(suffixArray(startingIndex + lexSmallerScanIndex),
+                           suffixToInsert,
+                           commonLcp)
+              } else {
+                -1
+              }
+            }
+          }
+          while (lexGreaterScanLcp == currentMatchLength) {
+            val lexGreaterScanSource = suffixArray(
+              startingIndex + lexGreaterScanIndex)
+            if (lexGreaterScanSource > currentMatchSource) {
+              currentMatchSource = lexGreaterScanSource
+            }
+            lexGreaterScanIndex += 1
+            lexGreaterScanLcp = {
+              if (lexGreaterScanIndex <= sortedElements) {
+                computeLcp(suffixArray(startingIndex + lexGreaterScanIndex),
+                           suffixToInsert,
+                           commonLcp)
+              } else {
+                -1
+              }
+            }
+          }
+          if (currentMatchSource > prevBestMatchSource) {
+            val optimalMatch = makePacked(currentMatchSource,
+                                          suffixToInsert,
+                                          currentMatchLength)
+            if (currentMatchLength == maxMatch || currentMatchSource == 0 ||
+                inputData(currentMatchSource - 1) != inputData(
+                  suffixToInsert - 1)) {
+              onAccepted(optimalMatch)
+            } else {
+              onDiscarded(optimalMatch)
+            }
+
+            prevBestMatchLength = currentMatchLength
+            prevBestMatchSource = currentMatchSource
+          } else {
+            val optimalMatch = makePacked(prevBestMatchSource,
+                                          suffixToInsert,
+                                          currentMatchLength)
+            onDiscarded(optimalMatch)
+          }
+          currentMatchLength -= 1
+        }
+        sortedElements += 1
+      }
+    }
+
+    @tailrec
+    private def findInsertionPoint(scannedPosition: Int,
+                                   suffixArrayStartingIndex: Int,
+                                   suffixToInsert: Int,
+                                   currentLcp: Int): Int = {
+      val lcp = computeLcp(
+        suffixArray(suffixArrayStartingIndex + scannedPosition),
+        suffixToInsert,
+        currentLcp)
+      val ordered = suffixesOrdered(
+        suffixArray(suffixArrayStartingIndex + scannedPosition),
+        suffixToInsert,
+        lcp)
+      if (ordered) {
+        scannedPosition + 1
+      } else if (scannedPosition == 0) {
+        scannedPosition
+      } else {
+        findInsertionPoint(scannedPosition - 1,
+                           suffixArrayStartingIndex,
+                           suffixToInsert,
+                           currentLcp)
+      }
+    }
+
+    @tailrec
+    private def computeLcp(earlierSuffixStart: Int,
+                           laterSuffixStart: Int,
+                           currentLcp: Int): Int = {
+      assert(earlierSuffixStart < laterSuffixStart)
+      assert(laterSuffixStart + currentLcp <= size)
+      val endOfDataReached = laterSuffixStart + currentLcp == size
+      val maximumLcpReached = currentLcp == maxMatch
+      if (endOfDataReached || maximumLcpReached || {
+            val earlierByte = inputData(earlierSuffixStart + currentLcp)
+            val laterByte = inputData(laterSuffixStart + currentLcp)
+            earlierByte != laterByte
+          }) {
+        currentLcp
+      } else {
+        computeLcp(earlierSuffixStart, laterSuffixStart, currentLcp + 1)
+      }
+    }
+
+    private def suffixesOrdered(firstSuffixStart: Int,
+                                secondSuffixStart: Int,
+                                lcp: Int): Boolean = {
+      assert(firstSuffixStart != secondSuffixStart)
+      assert(firstSuffixStart + lcp <= size)
+      assert(secondSuffixStart + lcp <= size)
+      if (firstSuffixStart + lcp == size) {
+        false
+      } else if (secondSuffixStart + lcp == size) {
+        true
+      } else if (lcp == maxMatch) {
+        firstSuffixStart < secondSuffixStart
+      } else {
+        val firstSuffixByte = inputData(firstSuffixStart + lcp) & 0xFF
+        val secondSuffixByte = inputData(secondSuffixStart + lcp) & 0xFF
+        assert(firstSuffixByte != secondSuffixByte)
+        firstSuffixByte < secondSuffixByte
       }
     }
 

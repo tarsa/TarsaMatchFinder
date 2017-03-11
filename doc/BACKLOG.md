@@ -7,7 +7,7 @@ List of to-do items
 - change license?
 
 ### Algorithm quality and resource usage
-- use LCP-aware insertion sort for smallest segments in TarsaMatchFinder
+- optimize LCP-aware insertion sort in TarsaMatchFinder
 - cache more columns (4 instead of 1) at once during cached radix sort passes
 - maybe use cached back column in more radix sort variants
 - do essential matches sorting as a separate phase
