@@ -44,7 +44,6 @@ object TarsaMatchFinder extends MatchFinder {
                        maxMatch: Int,
                        onAccepted: Match.Packed => Unit,
                        onDiscarded: Match.Packed => Unit) {
-    private var index = 0
     private var marker = 1L
 
     private val size =
@@ -55,22 +54,10 @@ object TarsaMatchFinder extends MatchFinder {
     private val suffixArrayAuxiliary =
       Array.ofDim[Int](size)
 
-    index = 0
-    while (index < size) {
-      suffixArray(index) = index
-      index += 1
-    }
-
     private val backColumn =
       Array.ofDim[Byte](size)
     private val backColumnAuxiliary =
       Array.ofDim[Byte](size)
-
-    index = 1
-    while (index < size) {
-      backColumn(index) = inputData(index - 1)
-      index += 1
-    }
 
     private val activeColumn =
       Array.ofDim[Byte](size)
@@ -91,6 +78,24 @@ object TarsaMatchFinder extends MatchFinder {
     private val lcpArray =
       Array.ofDim[Int](LcpAwareInsertionSortThreshold)
 
+    private def initialize(): Unit = {
+      var index = 0
+
+      index = 0
+      while (index < size) {
+        suffixArray(index) = index
+        index += 1
+      }
+
+      index = 1
+      while (index < size) {
+        backColumn(index) = inputData(index - 1)
+        index += 1
+      }
+    }
+
+    initialize()
+
     private def getValue(index: Int, depth: Int): Int = {
       inputData(suffixArray(index) + depth) & 0xFF
     }
@@ -99,6 +104,7 @@ object TarsaMatchFinder extends MatchFinder {
                                   startingIndex: Int,
                                   unsafeElementsNumber: Int,
                                   segmentsFrameStartingIndex: Int): Unit = {
+      var index = 0
       if (unsafeElementsNumber < CachedColumnsRadixSearchThreshold) {
         radixSearch(lcpLength,
                     startingIndex,
@@ -213,6 +219,7 @@ object TarsaMatchFinder extends MatchFinder {
                             startingIndex: Int,
                             unsafeElementsNumber: Int,
                             segmentsFrameStartingIndex: Int): Unit = {
+      var index = 0
       if (unsafeElementsNumber < RemappedAlphabetRadixSearchThreshold) {
         radixSearchRemapped(lcpLength,
                             startingIndex,
@@ -316,6 +323,7 @@ object TarsaMatchFinder extends MatchFinder {
                                     startingIndex: Int,
                                     unsafeElementsNumber: Int,
                                     segmentsFrameStartingIndex: Int): Unit = {
+      var index = 0
       if (unsafeElementsNumber < LcpAwareInsertionSortThreshold) {
         lcpAwareInsertionSort(lcpLength, startingIndex, unsafeElementsNumber)
       } else if (lcpLength < maxMatch) {
@@ -427,6 +435,7 @@ object TarsaMatchFinder extends MatchFinder {
     private def lcpAwareInsertionSort(commonLcp: Int,
                                       startingIndex: Int,
                                       elementsNumber: Int): Unit = {
+      var index = 0
       lcpArray(0) = commonLcp
       var sortedElements = 1
       while (sortedElements < elementsNumber) {
