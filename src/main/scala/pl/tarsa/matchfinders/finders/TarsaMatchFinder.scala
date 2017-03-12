@@ -444,6 +444,7 @@ object TarsaMatchFinder extends MatchFinder {
                                startingIndex,
                                suffixToInsert,
                                commonLcp,
+                               commonLcp,
                                sortedElements)
         if (insertionPoint > 0) {
           assert(
@@ -545,47 +546,66 @@ object TarsaMatchFinder extends MatchFinder {
     private def insertAndReturnIndex(scannedPosition: Int,
                                      suffixArrayStartingIndex: Int,
                                      suffixToInsert: Int,
-                                     currentLcp: Int,
+                                     previousLcp: Int,
+                                     commonLcp: Int,
                                      sortedElements: Int): Int = {
-      val lcp = computeLcp(
-        suffixArray(suffixArrayStartingIndex + scannedPosition),
-        suffixToInsert,
-        currentLcp)
-      val ordered = suffixesOrdered(
-        suffixArray(suffixArrayStartingIndex + scannedPosition),
-        suffixToInsert,
-        lcp)
-      if (ordered) {
+      if (lcpArray(scannedPosition) < previousLcp) {
         suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
           suffixToInsert
-        lcpArray(scannedPosition + 1) = {
-          if (scannedPosition + 2 <= sortedElements) {
-            computeLcp(
-              suffixArray(suffixArrayStartingIndex + scannedPosition + 2),
-              suffixToInsert,
-              currentLcp)
-          } else {
-            currentLcp
-          }
-        }
-        lcpArray(scannedPosition) = lcp
+        lcpArray(scannedPosition + 1) = previousLcp
         scannedPosition + 1
-      } else if (scannedPosition == 0) {
-        suffixArray(suffixArrayStartingIndex + 1) = suffixArray(
-          suffixArrayStartingIndex)
-        lcpArray(1) = lcpArray(0)
-        suffixArray(suffixArrayStartingIndex + 0) = suffixToInsert
-        lcpArray(0) = lcp
-        0
+      } else if (lcpArray(scannedPosition) > previousLcp) {
+        if (scannedPosition > 0) {
+          suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
+            suffixArray(suffixArrayStartingIndex + scannedPosition)
+          lcpArray(scannedPosition + 1) = lcpArray(scannedPosition)
+          insertAndReturnIndex(scannedPosition - 1,
+                               suffixArrayStartingIndex,
+                               suffixToInsert,
+                               previousLcp,
+                               commonLcp,
+                               sortedElements)
+        } else {
+          suffixArray(suffixArrayStartingIndex + 1) = suffixArray(
+            suffixArrayStartingIndex)
+          lcpArray(1) = lcpArray(0)
+          suffixArray(suffixArrayStartingIndex + 0) = suffixToInsert
+          lcpArray(0) = previousLcp
+          0
+        }
       } else {
-        suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
-          suffixArray(suffixArrayStartingIndex + scannedPosition)
-        lcpArray(scannedPosition + 1) = lcpArray(scannedPosition)
-        insertAndReturnIndex(scannedPosition - 1,
-                             suffixArrayStartingIndex,
-                             suffixToInsert,
-                             currentLcp,
-                             sortedElements)
+        val lcp = computeLcp(
+          suffixArray(suffixArrayStartingIndex + scannedPosition),
+          suffixToInsert,
+          previousLcp)
+        val ordered = suffixesOrdered(
+          suffixArray(suffixArrayStartingIndex + scannedPosition),
+          suffixToInsert,
+          lcp)
+        if (ordered) {
+          suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
+            suffixToInsert
+          lcpArray(scannedPosition + 1) = previousLcp
+          lcpArray(scannedPosition) = lcp
+          scannedPosition + 1
+        } else if (scannedPosition == 0) {
+          suffixArray(suffixArrayStartingIndex + 1) = suffixArray(
+            suffixArrayStartingIndex)
+          lcpArray(1) = lcpArray(0)
+          suffixArray(suffixArrayStartingIndex + 0) = suffixToInsert
+          lcpArray(0) = lcp
+          0
+        } else {
+          suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
+            suffixArray(suffixArrayStartingIndex + scannedPosition)
+          lcpArray(scannedPosition + 1) = lcpArray(scannedPosition)
+          insertAndReturnIndex(scannedPosition - 1,
+                               suffixArrayStartingIndex,
+                               suffixToInsert,
+                               lcp,
+                               commonLcp,
+                               sortedElements)
+        }
       }
     }
 
