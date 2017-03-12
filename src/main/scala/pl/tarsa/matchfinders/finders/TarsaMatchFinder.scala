@@ -433,95 +433,25 @@ object TarsaMatchFinder extends MatchFinder {
     }
 
     final def lcpAwareInsertionSort(commonLcp: Int,
-                                    startingIndex: Int,
+                                    suffixArrayStartingIndex: Int,
                                     elementsNumber: Int): Unit = {
       lcpArray(0) = commonLcp
       var sortedElements = 1
       while (sortedElements < elementsNumber) {
-        val suffixToInsert = suffixArray(startingIndex + sortedElements)
+        val suffixToInsert = suffixArray(
+          suffixArrayStartingIndex + sortedElements)
         val insertionPoint =
           insertAndReturnIndex(sortedElements - 1,
-                               startingIndex,
+                               suffixArrayStartingIndex,
                                suffixToInsert,
                                commonLcp,
                                commonLcp,
                                sortedElements)
-        var currentMatchLength = -1
-        if (insertionPoint > 0) {
-          currentMatchLength = lcpArray(insertionPoint - 1)
-        }
-        if (lcpArray(insertionPoint) > currentMatchLength) {
-          currentMatchLength = lcpArray(insertionPoint)
-        }
-        assert(currentMatchLength >= commonLcp)
-        var prevBestMatchLength = -1
-        var prevBestMatchSource = -1
-        var lexSmallerScanIndex = insertionPoint - 1
-        var lexSmallerScanLcp = -1
-        if (lexSmallerScanIndex >= 0) {
-          lexSmallerScanLcp = lcpArray(lexSmallerScanIndex)
-        }
-        var lexGreaterScanIndex = insertionPoint + 1
-        var lexGreaterScanLcp = -1
-        if (lexGreaterScanIndex <= sortedElements) {
-          lexGreaterScanLcp = lcpArray(lexGreaterScanIndex - 1)
-        }
-        val lcpLowerLimit = math.max(minMatch, commonLcp)
-        while (currentMatchLength >= lcpLowerLimit) {
-          var currentMatchSource = -1
-          while (lexSmallerScanLcp == currentMatchLength) {
-            val lexSmallerScanSource = suffixArray(
-              startingIndex + lexSmallerScanIndex)
-            if (lexSmallerScanSource > currentMatchSource) {
-              currentMatchSource = lexSmallerScanSource
-            }
-            lexSmallerScanIndex -= 1
-            lexSmallerScanLcp = {
-              if (lexSmallerScanIndex >= 0) {
-                math.min(lexSmallerScanLcp, lcpArray(lexSmallerScanIndex))
-              } else {
-                -1
-              }
-            }
-          }
-          while (lexGreaterScanLcp == currentMatchLength) {
-            val lexGreaterScanSource = suffixArray(
-              startingIndex + lexGreaterScanIndex)
-            if (lexGreaterScanSource > currentMatchSource) {
-              currentMatchSource = lexGreaterScanSource
-            }
-            lexGreaterScanIndex += 1
-            lexGreaterScanLcp = {
-              if (lexGreaterScanIndex <= sortedElements) {
-                math.min(lexGreaterScanLcp, lcpArray(lexGreaterScanIndex - 1))
-              } else {
-                -1
-              }
-            }
-          }
-          if (currentMatchSource > prevBestMatchSource) {
-            val optimalMatch = makePacked(currentMatchSource,
-                                          suffixToInsert,
-                                          currentMatchLength)
-            if (currentMatchLength == maxMatch || currentMatchSource == 0 ||
-                inputData(currentMatchSource - 1) != inputData(
-                  suffixToInsert - 1)) {
-              onAccepted(optimalMatch)
-            } else {
-              onDiscarded(optimalMatch)
-            }
-
-            prevBestMatchLength = currentMatchLength
-            prevBestMatchSource = currentMatchSource
-          } else {
-            val optimalMatch = makePacked(prevBestMatchSource,
-                                          suffixToInsert,
-                                          currentMatchLength)
-            onDiscarded(optimalMatch)
-          }
-          currentMatchLength -= 1
-        }
         sortedElements += 1
+        outputMatchesForInsertedSuffix(commonLcp,
+                                       suffixArrayStartingIndex,
+                                       insertionPoint,
+                                       sortedElements)
       }
     }
 
@@ -626,6 +556,87 @@ object TarsaMatchFinder extends MatchFinder {
         val secondSuffixByte = inputData(secondSuffixStart + lcp) & 0xFF
         assert(firstSuffixByte != secondSuffixByte)
         firstSuffixByte < secondSuffixByte
+      }
+    }
+
+    final def outputMatchesForInsertedSuffix(commonLcp: Int,
+                                             suffixArrayStartingIndex: Int,
+                                             insertionPoint: Int,
+                                             sortedElements: Int): Unit = {
+      val suffixToInsert = suffixArray(
+        suffixArrayStartingIndex + insertionPoint)
+      var currentMatchLength = -1
+      if (insertionPoint > 0) {
+        currentMatchLength = lcpArray(insertionPoint - 1)
+      }
+      if (lcpArray(insertionPoint) > currentMatchLength) {
+        currentMatchLength = lcpArray(insertionPoint)
+      }
+      assert(currentMatchLength >= commonLcp)
+      var prevBestMatchLength = -1
+      var prevBestMatchSource = -1
+      var lexSmallerScanIndex = insertionPoint - 1
+      var lexSmallerScanLcp = -1
+      if (lexSmallerScanIndex >= 0) {
+        lexSmallerScanLcp = lcpArray(lexSmallerScanIndex)
+      }
+      var lexGreaterScanIndex = insertionPoint + 1
+      var lexGreaterScanLcp = -1
+      if (lexGreaterScanIndex < sortedElements) {
+        lexGreaterScanLcp = lcpArray(lexGreaterScanIndex - 1)
+      }
+      val lcpLowerLimit = math.max(minMatch, commonLcp)
+      while (currentMatchLength >= lcpLowerLimit) {
+        var currentMatchSource = -1
+        while (lexSmallerScanLcp == currentMatchLength) {
+          val lexSmallerScanSource = suffixArray(
+            suffixArrayStartingIndex + lexSmallerScanIndex)
+          if (lexSmallerScanSource > currentMatchSource) {
+            currentMatchSource = lexSmallerScanSource
+          }
+          lexSmallerScanIndex -= 1
+          lexSmallerScanLcp = {
+            if (lexSmallerScanIndex >= 0) {
+              math.min(lexSmallerScanLcp, lcpArray(lexSmallerScanIndex))
+            } else {
+              -1
+            }
+          }
+        }
+        while (lexGreaterScanLcp == currentMatchLength) {
+          val lexGreaterScanSource = suffixArray(
+            suffixArrayStartingIndex + lexGreaterScanIndex)
+          if (lexGreaterScanSource > currentMatchSource) {
+            currentMatchSource = lexGreaterScanSource
+          }
+          lexGreaterScanIndex += 1
+          lexGreaterScanLcp = {
+            if (lexGreaterScanIndex < sortedElements) {
+              math.min(lexGreaterScanLcp, lcpArray(lexGreaterScanIndex - 1))
+            } else {
+              -1
+            }
+          }
+        }
+        if (currentMatchSource > prevBestMatchSource) {
+          val optimalMatch =
+            makePacked(currentMatchSource, suffixToInsert, currentMatchLength)
+          if (currentMatchLength == maxMatch || currentMatchSource == 0 ||
+              inputData(currentMatchSource - 1) != inputData(
+                suffixToInsert - 1)) {
+            onAccepted(optimalMatch)
+          } else {
+            onDiscarded(optimalMatch)
+          }
+
+          prevBestMatchLength = currentMatchLength
+          prevBestMatchSource = currentMatchSource
+        } else {
+          val optimalMatch =
+            makePacked(prevBestMatchSource, suffixToInsert, currentMatchLength)
+          onDiscarded(optimalMatch)
+        }
+        currentMatchLength -= 1
       }
     }
 
