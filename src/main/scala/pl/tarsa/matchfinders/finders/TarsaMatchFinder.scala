@@ -592,21 +592,21 @@ object TarsaMatchFinder extends MatchFinder {
       }
     }
 
-    @tailrec
     private def computeLcp(earlierSuffixStart: Int,
                            laterSuffixStart: Int,
-                           currentLcp: Int): Int = {
+                           knownLcp: Int): Int = {
       assert(earlierSuffixStart < laterSuffixStart)
-      assert(laterSuffixStart + currentLcp <= size)
-      if (currentLcp == maxMatch || laterSuffixStart + currentLcp == size || {
-            val earlierByte = inputData(earlierSuffixStart + currentLcp)
-            val laterByte = inputData(laterSuffixStart + currentLcp)
-            earlierByte != laterByte
-          }) {
-        currentLcp
-      } else {
-        computeLcp(earlierSuffixStart, laterSuffixStart, currentLcp + 1)
+      assert(laterSuffixStart + knownLcp <= size)
+      val lcpLimit = math.min(maxMatch, size - laterSuffixStart)
+      var currentLcp = knownLcp
+      while (currentLcp < lcpLimit && {
+               val earlierByte = inputData(earlierSuffixStart + currentLcp)
+               val laterByte = inputData(laterSuffixStart + currentLcp)
+               earlierByte == laterByte
+             }) {
+        currentLcp += 1
       }
+      currentLcp
     }
 
     private def suffixesOrdered(firstSuffixStart: Int,
