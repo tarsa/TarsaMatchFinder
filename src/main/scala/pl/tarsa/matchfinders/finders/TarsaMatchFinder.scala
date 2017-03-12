@@ -491,9 +491,7 @@ object TarsaMatchFinder extends MatchFinder {
             lexSmallerScanIndex -= 1
             lexSmallerScanLcp = {
               if (lexSmallerScanIndex >= 0) {
-                computeLcp(suffixArray(startingIndex + lexSmallerScanIndex),
-                           suffixToInsert,
-                           commonLcp)
+                math.min(lexSmallerScanLcp, lcpArray(lexSmallerScanIndex))
               } else {
                 -1
               }
@@ -508,9 +506,7 @@ object TarsaMatchFinder extends MatchFinder {
             lexGreaterScanIndex += 1
             lexGreaterScanLcp = {
               if (lexGreaterScanIndex <= sortedElements) {
-                computeLcp(suffixArray(startingIndex + lexGreaterScanIndex),
-                           suffixToInsert,
-                           commonLcp)
+                math.min(lexGreaterScanLcp, lcpArray(lexGreaterScanIndex - 1))
               } else {
                 -1
               }
