@@ -96,14 +96,14 @@ object TarsaMatchFinder extends MatchFinder {
 
     initialize()
 
-    private def getValue(index: Int, depth: Int): Int = {
+    final def getValue(index: Int, depth: Int): Int = {
       inputData(suffixArray(index) + depth) & 0xFF
     }
 
-    private def radixSearchCached(lcpLength: Int,
-                                  startingIndex: Int,
-                                  unsafeElementsNumber: Int,
-                                  segmentsFrameStartingIndex: Int): Unit = {
+    final def radixSearchCached(lcpLength: Int,
+                                startingIndex: Int,
+                                unsafeElementsNumber: Int,
+                                segmentsFrameStartingIndex: Int): Unit = {
       var index = 0
       if (unsafeElementsNumber < CachedColumnsRadixSearchThreshold) {
         radixSearch(lcpLength,
@@ -215,10 +215,10 @@ object TarsaMatchFinder extends MatchFinder {
       }
     }
 
-    private def radixSearch(lcpLength: Int,
-                            startingIndex: Int,
-                            unsafeElementsNumber: Int,
-                            segmentsFrameStartingIndex: Int): Unit = {
+    final def radixSearch(lcpLength: Int,
+                          startingIndex: Int,
+                          unsafeElementsNumber: Int,
+                          segmentsFrameStartingIndex: Int): Unit = {
       var index = 0
       if (unsafeElementsNumber < RemappedAlphabetRadixSearchThreshold) {
         radixSearchRemapped(lcpLength,
@@ -319,10 +319,10 @@ object TarsaMatchFinder extends MatchFinder {
       }
     }
 
-    private def radixSearchRemapped(lcpLength: Int,
-                                    startingIndex: Int,
-                                    unsafeElementsNumber: Int,
-                                    segmentsFrameStartingIndex: Int): Unit = {
+    final def radixSearchRemapped(lcpLength: Int,
+                                  startingIndex: Int,
+                                  unsafeElementsNumber: Int,
+                                  segmentsFrameStartingIndex: Int): Unit = {
       var index = 0
       if (unsafeElementsNumber < LcpAwareInsertionSortThreshold) {
         lcpAwareInsertionSort(lcpLength, startingIndex, unsafeElementsNumber)
@@ -432,9 +432,9 @@ object TarsaMatchFinder extends MatchFinder {
       }
     }
 
-    private def lcpAwareInsertionSort(commonLcp: Int,
-                                      startingIndex: Int,
-                                      elementsNumber: Int): Unit = {
+    final def lcpAwareInsertionSort(commonLcp: Int,
+                                    startingIndex: Int,
+                                    elementsNumber: Int): Unit = {
       lcpArray(0) = commonLcp
       var sortedElements = 1
       while (sortedElements < elementsNumber) {
@@ -526,12 +526,12 @@ object TarsaMatchFinder extends MatchFinder {
     }
 
     @tailrec
-    private def insertAndReturnIndex(scannedPosition: Int,
-                                     suffixArrayStartingIndex: Int,
-                                     suffixToInsert: Int,
-                                     previousLcp: Int,
-                                     commonLcp: Int,
-                                     sortedElements: Int): Int = {
+    final def insertAndReturnIndex(scannedPosition: Int,
+                                   suffixArrayStartingIndex: Int,
+                                   suffixToInsert: Int,
+                                   previousLcp: Int,
+                                   commonLcp: Int,
+                                   sortedElements: Int): Int = {
       if (lcpArray(scannedPosition) < previousLcp) {
         suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
           suffixToInsert
@@ -592,9 +592,9 @@ object TarsaMatchFinder extends MatchFinder {
       }
     }
 
-    private def computeLcp(earlierSuffixStart: Int,
-                           laterSuffixStart: Int,
-                           knownLcp: Int): Int = {
+    final def computeLcp(earlierSuffixStart: Int,
+                         laterSuffixStart: Int,
+                         knownLcp: Int): Int = {
       assert(earlierSuffixStart < laterSuffixStart)
       assert(laterSuffixStart + knownLcp <= size)
       val lcpLimit = math.min(maxMatch, size - laterSuffixStart)
@@ -609,9 +609,9 @@ object TarsaMatchFinder extends MatchFinder {
       currentLcp
     }
 
-    private def suffixesOrdered(firstSuffixStart: Int,
-                                secondSuffixStart: Int,
-                                lcp: Int): Boolean = {
+    final def suffixesOrdered(firstSuffixStart: Int,
+                              secondSuffixStart: Int,
+                              lcp: Int): Boolean = {
       assert(firstSuffixStart != secondSuffixStart)
       assert(firstSuffixStart + lcp <= size)
       assert(secondSuffixStart + lcp <= size)
@@ -629,7 +629,7 @@ object TarsaMatchFinder extends MatchFinder {
       }
     }
 
-    def result(): Unit =
+    final def result(): Unit =
       radixSearchCached(0, 0, size, 0)
   }
 
