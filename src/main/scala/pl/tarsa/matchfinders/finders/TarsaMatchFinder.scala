@@ -446,19 +446,6 @@ object TarsaMatchFinder extends MatchFinder {
                                commonLcp,
                                commonLcp,
                                sortedElements)
-        if (insertionPoint > 0) {
-          assert(
-            suffixesOrdered(suffixArray(startingIndex + insertionPoint - 1),
-                            suffixArray(startingIndex + insertionPoint),
-                            lcpArray(insertionPoint - 1)))
-        }
-        if (insertionPoint < sortedElements) {
-          assert(
-            suffixesOrdered(suffixArray(startingIndex + insertionPoint),
-                            suffixArray(startingIndex + insertionPoint + 1),
-                            lcpArray(insertionPoint)))
-        }
-
         var currentMatchLength = -1
         if (insertionPoint > 0) {
           currentMatchLength = lcpArray(insertionPoint - 1)
@@ -611,9 +598,7 @@ object TarsaMatchFinder extends MatchFinder {
                            currentLcp: Int): Int = {
       assert(earlierSuffixStart < laterSuffixStart)
       assert(laterSuffixStart + currentLcp <= size)
-      val endOfDataReached = laterSuffixStart + currentLcp == size
-      val maximumLcpReached = currentLcp == maxMatch
-      if (endOfDataReached || maximumLcpReached || {
+      if (currentLcp == maxMatch || laterSuffixStart + currentLcp == size || {
             val earlierByte = inputData(earlierSuffixStart + currentLcp)
             val laterByte = inputData(laterSuffixStart + currentLcp)
             earlierByte != laterByte
