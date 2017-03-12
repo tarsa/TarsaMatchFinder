@@ -435,39 +435,16 @@ object TarsaMatchFinder extends MatchFinder {
     private def lcpAwareInsertionSort(commonLcp: Int,
                                       startingIndex: Int,
                                       elementsNumber: Int): Unit = {
-      var index = 0
       lcpArray(0) = commonLcp
       var sortedElements = 1
       while (sortedElements < elementsNumber) {
         val suffixToInsert = suffixArray(startingIndex + sortedElements)
         val insertionPoint =
-          findInsertionPoint(sortedElements - 1,
-                             startingIndex,
-                             suffixToInsert,
-                             commonLcp)
-        index = sortedElements
-        while (index > insertionPoint) {
-          suffixArray(startingIndex + index) = suffixArray(
-            startingIndex + index - 1)
-          lcpArray(index) = lcpArray(index - 1)
-          index -= 1
-        }
-        suffixArray(startingIndex + insertionPoint) = suffixToInsert
-        if (insertionPoint > 0) {
-          lcpArray(insertionPoint - 1) = computeLcp(
-            suffixArray(startingIndex + insertionPoint - 1),
-            suffixArray(startingIndex + insertionPoint),
-            commonLcp)
-        }
-        lcpArray(insertionPoint) = {
-          if (insertionPoint == sortedElements) {
-            commonLcp
-          } else {
-            computeLcp(suffixArray(startingIndex + insertionPoint + 1),
-                       suffixArray(startingIndex + insertionPoint),
-                       commonLcp)
-          }
-        }
+          insertAndReturnIndex(sortedElements - 1,
+                               startingIndex,
+                               suffixToInsert,
+                               commonLcp,
+                               sortedElements)
         if (insertionPoint > 0) {
           assert(
             suffixesOrdered(suffixArray(startingIndex + insertionPoint - 1),
@@ -565,10 +542,11 @@ object TarsaMatchFinder extends MatchFinder {
     }
 
     @tailrec
-    private def findInsertionPoint(scannedPosition: Int,
-                                   suffixArrayStartingIndex: Int,
-                                   suffixToInsert: Int,
-                                   currentLcp: Int): Int = {
+    private def insertAndReturnIndex(scannedPosition: Int,
+                                     suffixArrayStartingIndex: Int,
+                                     suffixToInsert: Int,
+                                     currentLcp: Int,
+                                     sortedElements: Int): Int = {
       val lcp = computeLcp(
         suffixArray(suffixArrayStartingIndex + scannedPosition),
         suffixToInsert,
@@ -578,14 +556,36 @@ object TarsaMatchFinder extends MatchFinder {
         suffixToInsert,
         lcp)
       if (ordered) {
+        suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
+          suffixToInsert
+        lcpArray(scannedPosition + 1) = {
+          if (scannedPosition + 2 <= sortedElements) {
+            computeLcp(
+              suffixArray(suffixArrayStartingIndex + scannedPosition + 2),
+              suffixToInsert,
+              currentLcp)
+          } else {
+            currentLcp
+          }
+        }
+        lcpArray(scannedPosition) = lcp
         scannedPosition + 1
       } else if (scannedPosition == 0) {
-        scannedPosition
+        suffixArray(suffixArrayStartingIndex + 1) = suffixArray(
+          suffixArrayStartingIndex)
+        lcpArray(1) = lcpArray(0)
+        suffixArray(suffixArrayStartingIndex + 0) = suffixToInsert
+        lcpArray(0) = lcp
+        0
       } else {
-        findInsertionPoint(scannedPosition - 1,
-                           suffixArrayStartingIndex,
-                           suffixToInsert,
-                           currentLcp)
+        suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
+          suffixArray(suffixArrayStartingIndex + scannedPosition)
+        lcpArray(scannedPosition + 1) = lcpArray(scannedPosition)
+        insertAndReturnIndex(scannedPosition - 1,
+                             suffixArrayStartingIndex,
+                             suffixToInsert,
+                             currentLcp,
+                             sortedElements)
       }
     }
 
