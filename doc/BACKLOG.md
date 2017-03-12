@@ -7,6 +7,7 @@ List of to-do items
 - change license?
 
 ### Algorithm quality and resource usage
+- implement more efficient match collecting and discarding
 - revert making segments stack contiguous as now for smallest segments there is
   insertion sort which does not use segments stack - therefore potential
   benefits from having a dense segments stack that occupies less CPU cache
