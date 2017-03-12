@@ -33,9 +33,15 @@ object Benchmark {
   val maxMatch = 120
 
   def main(args: Array[String]): Unit = {
+    println("Warm up")
+    for (_ <- 0 to 1) {
+      Timed("TarsaMatchFinder.run") {
+        TarsaMatchFinder.run(data, minMatch, maxMatch, _ => (), _ => ())
+      }
+    }
     for (iteration <- 0 to 10) {
       println(s"Iteration #$iteration")
-      for (skippedStages <- 0 to 4) {
+      for (skippedStages <- 0 to 5) {
         print(s"Skipped stages = $skippedStages: ")
         TarsaMatchFinder.skippedStages = skippedStages
         Timed("TarsaMatchFinder.run") {

@@ -52,10 +52,11 @@ object TarsaMatchFinder extends MatchFinder {
                        onAccepted: Match.Packed => Unit,
                        onDiscarded: Match.Packed => Unit,
                        skippedStages: Int) {
-    private val skipRadixSortCached = skippedStages > 3
-    private val skipRadixSort = skippedStages > 2
-    private val skipRadixSortRemapped = skippedStages > 1
-    private val skipLcpAwareInsertionSort = skippedStages > 0
+    private val skipRadixSortCached = skippedStages > 4
+    private val skipRadixSort = skippedStages > 3
+    private val skipRadixSortRemapped = skippedStages > 2
+    private val skipLcpAwareInsertionSort = skippedStages > 1
+    private val skipLcpAwareInsertionSortMatchOutput = skippedStages > 0
 
     private var marker = 1L
 
@@ -468,10 +469,12 @@ object TarsaMatchFinder extends MatchFinder {
                                  commonLcp,
                                  sortedElements)
           sortedElements += 1
-          outputMatchesForInsertedSuffix(commonLcp,
-                                         suffixArrayStartingIndex,
-                                         insertionPoint,
-                                         sortedElements)
+          if (!skipLcpAwareInsertionSortMatchOutput) {
+            outputMatchesForInsertedSuffix(commonLcp,
+                                           suffixArrayStartingIndex,
+                                           insertionPoint,
+                                           sortedElements)
+          }
         }
       }
     }
