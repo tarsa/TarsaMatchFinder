@@ -25,12 +25,19 @@ import pl.tarsa.matchfinders.model.Match
 import scala.annotation.tailrec
 
 object TarsaMatchFinder extends MatchFinder {
+  var skippedStages = 0
+
   override def run(inputData: Array[Byte],
                    minMatch: Int,
                    maxMatch: Int,
                    onAccepted: Match.Packed => Unit,
                    onDiscarded: Match.Packed => Unit): Unit = {
-    new Engine(inputData, minMatch, maxMatch, onAccepted, onDiscarded).result()
+    new Engine(inputData,
+               minMatch,
+               maxMatch,
+               onAccepted,
+               onDiscarded,
+               skippedStages).result()
   }
 
   private val CachedColumnsRadixSearchThreshold = 1234
@@ -43,7 +50,13 @@ object TarsaMatchFinder extends MatchFinder {
                        minMatch: Int,
                        maxMatch: Int,
                        onAccepted: Match.Packed => Unit,
-                       onDiscarded: Match.Packed => Unit) {
+                       onDiscarded: Match.Packed => Unit,
+                       skippedStages: Int) {
+    private val skipRadixSortCached = skippedStages > 3
+    private val skipRadixSort = skippedStages > 2
+    private val skipRadixSortRemapped = skippedStages > 1
+    private val skipLcpAwareInsertionSort = skippedStages > 0
+
     private var marker = 1L
 
     private val size =
@@ -105,7 +118,9 @@ object TarsaMatchFinder extends MatchFinder {
                                 unsafeElementsNumber: Int,
                                 segmentsFrameStartingIndex: Int): Unit = {
       var index = 0
-      if (unsafeElementsNumber < CachedColumnsRadixSearchThreshold) {
+      if (skipRadixSortCached) {
+        ()
+      } else if (unsafeElementsNumber < CachedColumnsRadixSearchThreshold) {
         radixSearch(lcpLength,
                     startingIndex,
                     unsafeElementsNumber,
@@ -220,7 +235,9 @@ object TarsaMatchFinder extends MatchFinder {
                           unsafeElementsNumber: Int,
                           segmentsFrameStartingIndex: Int): Unit = {
       var index = 0
-      if (unsafeElementsNumber < RemappedAlphabetRadixSearchThreshold) {
+      if (skipRadixSort) {
+        ()
+      } else if (unsafeElementsNumber < RemappedAlphabetRadixSearchThreshold) {
         radixSearchRemapped(lcpLength,
                             startingIndex,
                             unsafeElementsNumber,
@@ -324,7 +341,9 @@ object TarsaMatchFinder extends MatchFinder {
                                   unsafeElementsNumber: Int,
                                   segmentsFrameStartingIndex: Int): Unit = {
       var index = 0
-      if (unsafeElementsNumber < LcpAwareInsertionSortThreshold) {
+      if (skipRadixSortRemapped) {
+        ()
+      } else if (unsafeElementsNumber < LcpAwareInsertionSortThreshold) {
         lcpAwareInsertionSort(lcpLength, startingIndex, unsafeElementsNumber)
       } else if (lcpLength < maxMatch) {
         val elementsNumber = {
@@ -435,23 +454,25 @@ object TarsaMatchFinder extends MatchFinder {
     final def lcpAwareInsertionSort(commonLcp: Int,
                                     suffixArrayStartingIndex: Int,
                                     elementsNumber: Int): Unit = {
-      lcpArray(0) = commonLcp
-      var sortedElements = 1
-      while (sortedElements < elementsNumber) {
-        val suffixToInsert = suffixArray(
-          suffixArrayStartingIndex + sortedElements)
-        val insertionPoint =
-          insertAndReturnIndex(sortedElements - 1,
-                               suffixArrayStartingIndex,
-                               suffixToInsert,
-                               commonLcp,
-                               commonLcp,
-                               sortedElements)
-        sortedElements += 1
-        outputMatchesForInsertedSuffix(commonLcp,
-                                       suffixArrayStartingIndex,
-                                       insertionPoint,
-                                       sortedElements)
+      if (!skipLcpAwareInsertionSort) {
+        lcpArray(0) = commonLcp
+        var sortedElements = 1
+        while (sortedElements < elementsNumber) {
+          val suffixToInsert = suffixArray(
+            suffixArrayStartingIndex + sortedElements)
+          val insertionPoint =
+            insertAndReturnIndex(sortedElements - 1,
+                                 suffixArrayStartingIndex,
+                                 suffixToInsert,
+                                 commonLcp,
+                                 commonLcp,
+                                 sortedElements)
+          sortedElements += 1
+          outputMatchesForInsertedSuffix(commonLcp,
+                                         suffixArrayStartingIndex,
+                                         insertionPoint,
+                                         sortedElements)
+        }
       }
     }
 
