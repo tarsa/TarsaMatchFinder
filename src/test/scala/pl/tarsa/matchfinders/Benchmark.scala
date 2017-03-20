@@ -22,6 +22,7 @@ package pl.tarsa.matchfinders
 
 import java.nio.file.{Files, Paths}
 
+import pl.tarsa.matchfinders.collectors.IgnoringMatchCollector
 import pl.tarsa.matchfinders.finders.TarsaMatchFinder
 import pl.tarsa.util.Timed
 
@@ -36,7 +37,7 @@ object Benchmark {
     println("Warm up")
     for (_ <- 0 to 1) {
       Timed("TarsaMatchFinder.run") {
-        TarsaMatchFinder.run(data, minMatch, maxMatch, _ => (), _ => ())
+        TarsaMatchFinder.run(data, minMatch, maxMatch, IgnoringMatchCollector)
       }
     }
     for (iteration <- 0 to 10) {
@@ -45,7 +46,10 @@ object Benchmark {
         print(s"Skipped stages = $skippedStages: ")
         TarsaMatchFinder.skippedStages = skippedStages
         Timed("TarsaMatchFinder.run") {
-          TarsaMatchFinder.run(data, minMatch, maxMatch, _ => (), _ => ())
+          TarsaMatchFinder.run(data,
+                               minMatch,
+                               maxMatch,
+                               IgnoringMatchCollector)
         }
       }
       println()

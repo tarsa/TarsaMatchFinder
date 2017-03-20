@@ -22,11 +22,11 @@ package pl.tarsa.matchfinders
 
 import java.nio.file.{Files, Paths}
 
+import pl.tarsa.matchfinders.collectors.StandardMatchCollector
 import pl.tarsa.matchfinders.finders.TarsaMatchFinder
 import pl.tarsa.matchfinders.model.Match
 import pl.tarsa.util.Timed
 
-import scala.collection.mutable
 import scala.io.StdIn
 
 object Runner {
@@ -37,28 +37,26 @@ object Runner {
     val minMatch = 2
     val maxMatch = 120
 
-    val tarsaAcceptedBuilder = mutable.ArrayBuilder.make[Match.Packed]()
-    tarsaAcceptedBuilder.sizeHint(210 * 1000 * 1000)
-    var tarsaDiscardedCounter = 0
+    val tarsaMatchesCollector = new StandardMatchCollector()
+    tarsaMatchesCollector.essentialMatchesArrayBuilder.sizeHint(
+      210 * 1000 * 1000)
 
     StdIn.readLine("Press Enter to start processing...")
 
-    for (_ <- 0 to 0) {
-      tarsaAcceptedBuilder.clear()
-      tarsaDiscardedCounter = 0
+    for (_ <- 0 to 2) {
+      tarsaMatchesCollector.essentialMatchesArrayBuilder.clear()
+      tarsaMatchesCollector.discardedMatchesCounter = 0
       Timed("TarsaMatchFinder.run") {
-        TarsaMatchFinder.run(data,
-                             minMatch,
-                             maxMatch,
-                             tarsaAcceptedBuilder += _,
-                             _ => tarsaDiscardedCounter += 1)
+        TarsaMatchFinder.run(data, minMatch, maxMatch, tarsaMatchesCollector)
       }
     }
 
-    val tarsaAcceptedArray = tarsaAcceptedBuilder.result()
+    val tarsaAcceptedArray =
+      tarsaMatchesCollector.essentialMatchesArrayBuilder.result()
 
     println(s"Tarsa accepted:  ${tarsaAcceptedArray.length}")
-    println(s"Tarsa discarded: $tarsaDiscardedCounter")
+    printf("Tarsa discarded: %d\n",
+           tarsaMatchesCollector.discardedMatchesCounter)
 
     val lengthsHistogram = Array.ofDim[Int](5)
     for (packedMatch <- tarsaAcceptedArray) {
@@ -101,7 +99,8 @@ object Runner {
         matchesWithAtLeastLength3AndOffset64KiB += 1
       }
     }
-    println("Accepted matches with length >= 3 and offset >= 64KiB - " +
-      s"$matchesWithAtLeastLength3AndOffset64KiB")
+    println(
+      "Accepted matches with length >= 3 and offset >= 64KiB - " +
+        s"$matchesWithAtLeastLength3AndOffset64KiB")
   }
 }

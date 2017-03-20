@@ -23,6 +23,7 @@ package pl.tarsa.matchfinders
 import java.nio.file.{Files, Paths}
 import java.nio.{ByteBuffer, ByteOrder}
 
+import pl.tarsa.matchfinders.collectors.StandardMatchCollector
 import pl.tarsa.matchfinders.finders.{
   BruteForceMatchFinder,
   MatchFinder,
@@ -78,15 +79,10 @@ object Main {
     val minMatch = minString.toInt
     val maxMatch = maxString.toInt
     assert(1 <= minMatch && minMatch <= maxMatch && maxMatch <= 120)
-    val essentialMatchesArrayBuilder =
-      mutable.ArrayBuilder.make[Match.Packed]()
-    var discardedMatchesCounter = 0
-    finder.run(inputData,
-               minMatch,
-               maxMatch,
-               essentialMatchesArrayBuilder += _,
-               _ => discardedMatchesCounter += 1)
-    val essentialMatchesArray = essentialMatchesArrayBuilder.result()
+    val matchCollector = new StandardMatchCollector()
+    finder.run(inputData, minMatch, maxMatch, matchCollector)
+    val essentialMatchesArray =
+      matchCollector.essentialMatchesArrayBuilder.result()
     val essentialMatchesNumber = essentialMatchesArray.length
     val essentialMatchesDataArray = Array.ofDim[Byte](
       headerSize + essentialMatchesNumber * serializedMatchSize)
@@ -102,7 +98,8 @@ object Main {
       writeMatch(Match(packedMatch), essentialMatchesDataBuffer)
     }
     println(s"Essential matches written       = $essentialMatchesNumber")
-    println(s"Non-essential matches discarded = $discardedMatchesCounter")
+    printf("Non-essential matches discarded = %d\n",
+           matchCollector.discardedMatchesCounter)
     Files.write(Paths.get(essentialMatchesFileName), essentialMatchesDataArray)
   }
 

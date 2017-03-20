@@ -7,7 +7,6 @@ List of to-do items
 - change license?
 
 ### Algorithm quality and resource usage
-- implement more efficient match collecting and discarding
 - use cached back column everywhere in TarsaMatchFinder
 - cache more columns (4 or 8 instead of 1) at once during cached radix sort
   passes

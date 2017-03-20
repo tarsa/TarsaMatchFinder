@@ -20,14 +20,14 @@
  */
 package pl.tarsa.matchfinders.finders
 
+import pl.tarsa.matchfinders.collectors.MatchCollector
 import pl.tarsa.matchfinders.model.Match
 
 object BruteForceMatchFinder extends MatchFinder {
   override def run(inputData: Array[Byte],
                    minMatch: Int,
                    maxMatch: Int,
-                   onAccepted: Match.Packed => Unit,
-                   onDiscarded: Match.Packed => Unit): Unit = {
+                   collector: MatchCollector): Unit = {
     // variables
     val inheritedOffsets = Array.ofDim[Int](maxMatch + 1)
     val currentOffsets = Array.ofDim[Int](maxMatch + 1)
@@ -63,15 +63,15 @@ object BruteForceMatchFinder extends MatchFinder {
       matchLength = minMatch
       while (matchLength <= currentMaxMatch) {
         val currentIsInherited = matchLength <= inheritedMaxMatch &&
-            inheritedOffsets(matchLength) == currentOffsets(matchLength)
+          inheritedOffsets(matchLength) == currentOffsets(matchLength)
         val higherHasSameOffset = matchLength < currentMaxMatch &&
-            currentOffsets(matchLength) == currentOffsets(matchLength + 1)
+          currentOffsets(matchLength) == currentOffsets(matchLength + 1)
         val optimalMatch =
           makePacked(position, matchLength, currentOffsets(matchLength))
         if (currentIsInherited || higherHasSameOffset) {
-          onDiscarded(optimalMatch)
+          collector.onDiscarded(optimalMatch)
         } else {
-          onAccepted(optimalMatch)
+          collector.onAccepted(optimalMatch)
         }
         matchLength += 1
       }

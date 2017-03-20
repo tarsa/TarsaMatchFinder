@@ -22,11 +22,10 @@ package pl.tarsa.matchfinders
 
 import java.nio.file.{Files, Paths}
 
+import pl.tarsa.matchfinders.collectors.StandardMatchCollector
 import pl.tarsa.matchfinders.finders.{BruteForceMatchFinder, TarsaMatchFinder}
 import pl.tarsa.matchfinders.model.Match
 import pl.tarsa.util.Timed
-
-import scala.collection.mutable
 
 object Checker {
   def main(args: Array[String]): Unit = {
@@ -36,29 +35,24 @@ object Checker {
     val minMatch = 2
     val maxMatch = 3
 
-    val bruteForceAcceptedBuilder = mutable.ArrayBuilder.make[Match.Packed]()
-    var bruteForceDiscardedCounter = 0
-    val tarsaAcceptedBuilder = mutable.ArrayBuilder.make[Match.Packed]()
-    var tarsaDiscardedCounter = 0
+    val bruteForceMatchCollector = new StandardMatchCollector()
+    val tarsaMatchCollector = new StandardMatchCollector()
 
     Timed("TarsaMatchFinder.run") {
-      TarsaMatchFinder.run(data,
-                           minMatch,
-                           maxMatch,
-                           tarsaAcceptedBuilder += _,
-                           _ => tarsaDiscardedCounter += 1)
+      TarsaMatchFinder.run(data, minMatch, maxMatch, tarsaMatchCollector)
     }
 
     Timed("BruteForceMatchFinder.run") {
       BruteForceMatchFinder.run(data,
                                 minMatch,
                                 maxMatch,
-                                bruteForceAcceptedBuilder += _,
-                                _ => bruteForceDiscardedCounter += 1)
+                                bruteForceMatchCollector)
     }
 
-    val bruteForceAcceptedArray = bruteForceAcceptedBuilder.result()
-    val tarsaAcceptedArray = tarsaAcceptedBuilder.result()
+    val bruteForceAcceptedArray =
+      bruteForceMatchCollector.essentialMatchesArrayBuilder.result()
+    val tarsaAcceptedArray =
+      tarsaMatchCollector.essentialMatchesArrayBuilder.result()
 
     assert(isSorted(bruteForceAcceptedArray))
     java.util.Arrays.sort(tarsaAcceptedArray)
@@ -116,10 +110,12 @@ object Checker {
       }
 
     println(s"Brute Force accepted: ${bruteForceAcceptedArray.length}")
-    println(s"Brute Force discarded: $bruteForceDiscardedCounter")
+    printf("Brute Force discarded: %d\n",
+           bruteForceMatchCollector.discardedMatchesCounter)
 
     println(s"Tarsa accepted: ${tarsaAcceptedArray.length}")
-    println(s"Tarsa discarded: $tarsaDiscardedCounter")
+    printf("Tarsa discarded: %d\n",
+           tarsaMatchCollector.discardedMatchesCounter)
   }
 
   def echo(string: String): Unit =

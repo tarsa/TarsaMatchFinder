@@ -20,6 +20,7 @@
  */
 package pl.tarsa.matchfinders.finders
 
+import pl.tarsa.matchfinders.collectors.MatchCollector
 import pl.tarsa.matchfinders.model.Match
 
 import scala.annotation.tailrec
@@ -30,14 +31,9 @@ object TarsaMatchFinder extends MatchFinder {
   override def run(inputData: Array[Byte],
                    minMatch: Int,
                    maxMatch: Int,
-                   onAccepted: Match.Packed => Unit,
-                   onDiscarded: Match.Packed => Unit): Unit = {
-    new Engine(inputData,
-               minMatch,
-               maxMatch,
-               onAccepted,
-               onDiscarded,
-               skippedStages).result()
+                   collector: MatchCollector): Unit = {
+    new Engine(inputData, minMatch, maxMatch, collector, skippedStages)
+      .result()
   }
 
   private val CachedColumnsRadixSearchThreshold = 1234
@@ -49,9 +45,10 @@ object TarsaMatchFinder extends MatchFinder {
   private class Engine(inputData: Array[Byte],
                        minMatch: Int,
                        maxMatch: Int,
-                       onAccepted: Match.Packed => Unit,
-                       onDiscarded: Match.Packed => Unit,
+                       collector: MatchCollector,
                        skippedStages: Int) {
+    import collector.{onAccepted, onDiscarded}
+
     private val skipRadixSortCached = skippedStages > 4
     private val skipRadixSort = skippedStages > 3
     private val skipRadixSortRemapped = skippedStages > 2

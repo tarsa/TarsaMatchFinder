@@ -18,13 +18,13 @@
  *  3. This notice may not be removed or altered from any source distribution.
  *
  */
-package pl.tarsa.matchfinders.finders
+package pl.tarsa.matchfinders.collectors
+import pl.tarsa.matchfinders.model.Match.Packed
 
-import pl.tarsa.matchfinders.collectors.MatchCollector
+object IgnoringMatchCollector extends MatchCollector {
+  override def onAccepted(theMatch: Packed): Unit =
+    ()
 
-trait MatchFinder {
-  def run(inputData: Array[Byte],
-          minMatch: Int,
-          maxMatch: Int,
-          collector: MatchCollector): Unit
+  override def onDiscarded(theMatch: Packed): Unit =
+    ()
 }
