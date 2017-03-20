@@ -8,10 +8,6 @@ List of to-do items
 
 ### Algorithm quality and resource usage
 - implement more efficient match collecting and discarding
-- revert making segments stack contiguous as now for smallest segments there is
-  insertion sort which does not use segments stack - therefore potential
-  benefits from having a dense segments stack that occupies less CPU cache
-  diminished
 - use cached back column everywhere in TarsaMatchFinder
 - cache more columns (4 or 8 instead of 1) at once during cached radix sort
   passes
