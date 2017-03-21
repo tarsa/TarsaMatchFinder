@@ -36,8 +36,6 @@ object TarsaMatchFinder extends MatchFinder {
       .result()
   }
 
-  private val CachedColumnsRadixSearchThreshold = 1234
-
   private val RemappedAlphabetRadixSearchThreshold = 70
 
   private val LcpAwareInsertionSortThreshold = 10
@@ -49,8 +47,7 @@ object TarsaMatchFinder extends MatchFinder {
                        skippedStages: Int) {
     import collector.{onAccepted, onDiscarded}
 
-    private val skipRadixSortCached = skippedStages > 4
-    private val skipRadixSort = skippedStages > 3
+    private val skipRadixSortCached = skippedStages > 3
     private val skipRadixSortRemapped = skippedStages > 2
     private val skipLcpAwareInsertionSort = skippedStages > 1
     private val skipLcpAwareInsertionSortMatchOutput = skippedStages > 0
@@ -119,8 +116,8 @@ object TarsaMatchFinder extends MatchFinder {
       var index = 0
       if (skipRadixSortCached) {
         ()
-      } else if (unsafeElementsNumber < CachedColumnsRadixSearchThreshold) {
-        radixSearch(lcpLength, startingIndex, unsafeElementsNumber)
+      } else if (unsafeElementsNumber < RemappedAlphabetRadixSearchThreshold) {
+        radixSearchRemapped(lcpLength, startingIndex, unsafeElementsNumber)
       } else if (lcpLength < maxMatch) {
         val elementsNumber = {
           val lastIndex = startingIndex + unsafeElementsNumber - 1
@@ -240,111 +237,6 @@ object TarsaMatchFinder extends MatchFinder {
             radixSearchCached(lcpLength + 1,
                               segments(segmentIndex),
                               segmentLength)
-          }
-          segmentIndex += 1
-        }
-      } else {
-        assert(lcpLength == maxMatch)
-        index = startingIndex + 1
-        while (index < startingIndex + unsafeElementsNumber) {
-          val optimalMatch =
-            makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
-          onAccepted(optimalMatch)
-          index += 1
-        }
-      }
-    }
-
-    final def radixSearch(lcpLength: Int,
-                          startingIndex: Int,
-                          unsafeElementsNumber: Int): Unit = {
-      var index = 0
-      if (skipRadixSort) {
-        ()
-      } else if (unsafeElementsNumber < RemappedAlphabetRadixSearchThreshold) {
-        radixSearchRemapped(lcpLength, startingIndex, unsafeElementsNumber)
-      } else if (lcpLength < maxMatch) {
-        val elementsNumber = {
-          val lastIndex = startingIndex + unsafeElementsNumber - 1
-          if (suffixArray(lastIndex) + lcpLength == size) {
-            if (lcpLength >= minMatch && startingIndex != lastIndex) {
-              val optimalMatch =
-                makePacked(suffixArray(lastIndex - 1),
-                           suffixArray(lastIndex),
-                           lcpLength)
-              if (suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0
-                  && backColumn(lastIndex - 1) == backColumn(lastIndex)) {
-                onDiscarded(optimalMatch)
-              } else {
-                onAccepted(optimalMatch)
-              }
-            }
-            unsafeElementsNumber - 1
-          } else {
-            unsafeElementsNumber
-          }
-        }
-        if (lcpLength >= minMatch) {
-          index = startingIndex + 1
-          while (index < startingIndex + elementsNumber) {
-            val optimalMatch =
-              makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
-            if (lcpLength < maxMatch &&
-                getValue(index - 1, lcpLength) == getValue(index, lcpLength)) {
-              onDiscarded(optimalMatch)
-            } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
-                       backColumn(index - 1) == backColumn(index)) {
-              onDiscarded(optimalMatch)
-            } else {
-              onAccepted(optimalMatch)
-            }
-            index += 1
-          }
-        }
-        java.util.Arrays.fill(histogram, 0)
-        index = startingIndex
-        while (index < startingIndex + elementsNumber) {
-          histogram(getValue(index, lcpLength)) += 1
-          index += 1
-        }
-        destinations(0) = startingIndex
-        index = 1
-        while (index < destinations.length) {
-          destinations(index) = destinations(index - 1) + histogram(index - 1)
-          index += 1
-        }
-        index = startingIndex
-        while (index < startingIndex + elementsNumber) {
-          val value = getValue(index, lcpLength)
-          val destination = destinations(value)
-          suffixArrayAuxiliary(destination) = suffixArray(index)
-          backColumnAuxiliary(destination) = backColumn(index)
-          destinations(value) += 1
-          index += 1
-        }
-        Array.copy(suffixArrayAuxiliary,
-                   startingIndex,
-                   suffixArray,
-                   startingIndex,
-                   elementsNumber)
-        Array.copy(backColumnAuxiliary,
-                   startingIndex,
-                   backColumn,
-                   startingIndex,
-                   elementsNumber)
-        val segments = segmentsStack(lcpLength)
-        segments(0) = startingIndex
-        index = 1
-        while (index < 256 + 1) {
-          segments(index) = segments(index - 1) + histogram(index - 1)
-          index += 1
-        }
-        var segmentIndex = 0
-        while (segmentIndex < 256) {
-          val segmentLength =
-            segments(segmentIndex + 1) - segments(segmentIndex)
-          if (segmentLength > 1) {
-            radixSearch(lcpLength + 1, segments(segmentIndex), segmentLength)
           }
           segmentIndex += 1
         }
