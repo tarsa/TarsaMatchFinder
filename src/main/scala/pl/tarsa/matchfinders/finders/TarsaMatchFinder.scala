@@ -70,8 +70,10 @@ object TarsaMatchFinder extends MatchFinder {
     private val backColumnAuxiliary =
       Array.ofDim[Byte](size)
 
-    private val activeColumn =
-      Array.ofDim[Byte](size)
+    private val activeColumns =
+      Array.ofDim[Int](size)
+    private val activeColumnsAuxiliary =
+      Array.ofDim[Int](size)
 
     private val histogram =
       Array.ofDim[Int](256)
@@ -140,18 +142,42 @@ object TarsaMatchFinder extends MatchFinder {
             unsafeElementsNumber
           }
         }
-        index = startingIndex
-        while (index < startingIndex + elementsNumber) {
-          activeColumn(index) = inputData(suffixArray(index) + lcpLength)
-          index += 1
+        if ((lcpLength & 3) == 0) {
+          index = startingIndex
+          while (index < startingIndex + elementsNumber) {
+            val chunkStart = suffixArray(index) + lcpLength
+            if (chunkStart <= size - 4) {
+              activeColumns(index) =
+                ((inputData(chunkStart + 3) & 0xFF) << 24) +
+                  ((inputData(chunkStart + 2) & 0xFF) << 16) +
+                  ((inputData(chunkStart + 1) & 0xFF) << 8) +
+                  (inputData(chunkStart) & 0xFF)
+            } else {
+              var symbolIndex = size - 1
+              var chunk = 0
+              while (symbolIndex >= chunkStart) {
+                chunk <<= 8
+                chunk |= inputData(symbolIndex) & 0xFF
+                symbolIndex -= 1
+              }
+              activeColumns(index) = chunk
+            }
+            index += 1
+          }
+        } else {
+          index = startingIndex
+          while (index < startingIndex + elementsNumber) {
+            activeColumns(index) >>>= 8
+            index += 1
+          }
         }
         if (lcpLength >= minMatch) {
           index = startingIndex + 1
           while (index < startingIndex + elementsNumber) {
             val optimalMatch =
               makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
-            if (lcpLength < maxMatch &&
-                activeColumn(index - 1) == activeColumn(index)) {
+            if (lcpLength < maxMatch && activeColumns(index - 1).toByte ==
+                  activeColumns(index).toByte) {
               onDiscarded(optimalMatch)
             } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
                        backColumn(index - 1) == backColumn(index)) {
@@ -165,7 +191,7 @@ object TarsaMatchFinder extends MatchFinder {
         java.util.Arrays.fill(histogram, 0)
         index = startingIndex
         while (index < startingIndex + elementsNumber) {
-          histogram(activeColumn(index) & 0xFF) += 1
+          histogram(activeColumns(index) & 0xFF) += 1
           index += 1
         }
         destinations(0) = startingIndex
@@ -176,9 +202,11 @@ object TarsaMatchFinder extends MatchFinder {
         }
         index = startingIndex
         while (index < startingIndex + elementsNumber) {
-          val value = activeColumn(index) & 0xFF
-          suffixArrayAuxiliary(destinations(value)) = suffixArray(index)
-          backColumnAuxiliary(destinations(value)) = backColumn(index)
+          val value = activeColumns(index) & 0xFF
+          val destination = destinations(value)
+          suffixArrayAuxiliary(destination) = suffixArray(index)
+          backColumnAuxiliary(destination) = backColumn(index)
+          activeColumnsAuxiliary(destination) = activeColumns(index)
           destinations(value) += 1
           index += 1
         }
@@ -190,6 +218,11 @@ object TarsaMatchFinder extends MatchFinder {
         Array.copy(backColumnAuxiliary,
                    startingIndex,
                    backColumn,
+                   startingIndex,
+                   elementsNumber)
+        Array.copy(activeColumnsAuxiliary,
+                   startingIndex,
+                   activeColumns,
                    startingIndex,
                    elementsNumber)
         val segments = segmentsStack(lcpLength)

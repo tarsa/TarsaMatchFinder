@@ -7,8 +7,7 @@ List of to-do items
 - change license?
 
 ### Algorithm quality and resource usage
-- cache more columns (4 or 8 instead of 1) at once during cached radix sort
-  passes
+- use cached active columns everywhere in TarsaMatchFinder
 - develop better heuristics for switching to LCP-aware insertion sort
 - make genetic algorithm to find best parameters (thresholds) for
   TarsaMatchFinder
