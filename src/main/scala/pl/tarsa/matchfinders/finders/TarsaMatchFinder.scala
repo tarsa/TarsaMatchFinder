@@ -240,7 +240,7 @@ object TarsaMatchFinder extends MatchFinder {
                            suffixArray(lastIndex),
                            lcpLength)
               if (suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0
-                  && getValue(lastIndex - 1, -1) == getValue(lastIndex, -1)) {
+                  && backColumn(lastIndex - 1) == backColumn(lastIndex)) {
                 onDiscarded(optimalMatch)
               } else {
                 onAccepted(optimalMatch)
@@ -260,7 +260,7 @@ object TarsaMatchFinder extends MatchFinder {
                 getValue(index - 1, lcpLength) == getValue(index, lcpLength)) {
               onDiscarded(optimalMatch)
             } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
-                       getValue(index - 1, -1) == getValue(index, -1)) {
+                       backColumn(index - 1) == backColumn(index)) {
               onDiscarded(optimalMatch)
             } else {
               onAccepted(optimalMatch)
@@ -283,13 +283,20 @@ object TarsaMatchFinder extends MatchFinder {
         index = startingIndex
         while (index < startingIndex + elementsNumber) {
           val value = getValue(index, lcpLength)
-          suffixArrayAuxiliary(destinations(value)) = suffixArray(index)
+          val destination = destinations(value)
+          suffixArrayAuxiliary(destination) = suffixArray(index)
+          backColumnAuxiliary(destination) = backColumn(index)
           destinations(value) += 1
           index += 1
         }
         Array.copy(suffixArrayAuxiliary,
                    startingIndex,
                    suffixArray,
+                   startingIndex,
+                   elementsNumber)
+        Array.copy(backColumnAuxiliary,
+                   startingIndex,
+                   backColumn,
                    startingIndex,
                    elementsNumber)
         val segments = segmentsStack(lcpLength)
@@ -338,7 +345,7 @@ object TarsaMatchFinder extends MatchFinder {
                            suffixArray(lastIndex),
                            lcpLength)
               if (suffixArray(lastIndex - 1) > 0 && suffixArray(lastIndex) > 0
-                  && getValue(lastIndex - 1, -1) == getValue(lastIndex, -1)) {
+                  && backColumn(lastIndex - 1) == backColumn(lastIndex)) {
                 onDiscarded(optimalMatch)
               } else {
                 onAccepted(optimalMatch)
@@ -358,7 +365,7 @@ object TarsaMatchFinder extends MatchFinder {
                 getValue(index - 1, lcpLength) == getValue(index, lcpLength)) {
               onDiscarded(optimalMatch)
             } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
-                       getValue(index - 1, -1) == getValue(index, -1)) {
+                       backColumn(index - 1) == backColumn(index)) {
               onDiscarded(optimalMatch)
             } else {
               onAccepted(optimalMatch)
@@ -393,13 +400,20 @@ object TarsaMatchFinder extends MatchFinder {
         while (index < startingIndex + elementsNumber) {
           val mappedValue = alphabetMapping(getValue(index, lcpLength))
           assert(mappedValue < alphabetSize)
-          suffixArrayAuxiliary(destinations(mappedValue)) = suffixArray(index)
+          val destination = destinations(mappedValue)
+          suffixArrayAuxiliary(destination) = suffixArray(index)
+          backColumnAuxiliary(destination) = backColumn(index)
           destinations(mappedValue) += 1
           index += 1
         }
         Array.copy(suffixArrayAuxiliary,
                    startingIndex,
                    suffixArray,
+                   startingIndex,
+                   elementsNumber)
+        Array.copy(backColumnAuxiliary,
+                   startingIndex,
+                   backColumn,
                    startingIndex,
                    elementsNumber)
         val segments = segmentsStack(lcpLength)
@@ -441,6 +455,8 @@ object TarsaMatchFinder extends MatchFinder {
         while (sortedElements < elementsNumber) {
           val suffixToInsert = suffixArray(
             suffixArrayStartingIndex + sortedElements)
+          val backSymbolOfSuffixToInsert = backColumn(
+            suffixArrayStartingIndex + sortedElements)
           val insertionPoint =
             insertAndReturnIndex(sortedElements - 1,
                                  suffixArrayStartingIndex,
@@ -448,6 +464,15 @@ object TarsaMatchFinder extends MatchFinder {
                                  commonLcp,
                                  commonLcp,
                                  sortedElements)
+
+          var index = sortedElements
+          while (index > insertionPoint) {
+            backColumn(suffixArrayStartingIndex + index) = backColumn(
+              suffixArrayStartingIndex + index - 1)
+            index -= 1
+          }
+          backColumn(suffixArrayStartingIndex + insertionPoint) =
+            backSymbolOfSuffixToInsert
           sortedElements += 1
           if (!skipLcpAwareInsertionSortMatchOutput) {
             outputMatchesForInsertedSuffix(commonLcp,
@@ -592,11 +617,13 @@ object TarsaMatchFinder extends MatchFinder {
       val lcpLowerLimit = math.max(minMatch, commonLcp)
       while (currentMatchLength >= lcpLowerLimit) {
         var currentMatchSource = -1
+        var currentMatchIndex = -1
         while (lexSmallerScanLcp == currentMatchLength) {
           val lexSmallerScanSource = suffixArray(
             suffixArrayStartingIndex + lexSmallerScanIndex)
           if (lexSmallerScanSource > currentMatchSource) {
             currentMatchSource = lexSmallerScanSource
+            currentMatchIndex = lexSmallerScanIndex
           }
           lexSmallerScanIndex -= 1
           lexSmallerScanLcp = {
@@ -612,6 +639,7 @@ object TarsaMatchFinder extends MatchFinder {
             suffixArrayStartingIndex + lexGreaterScanIndex)
           if (lexGreaterScanSource > currentMatchSource) {
             currentMatchSource = lexGreaterScanSource
+            currentMatchIndex = lexGreaterScanIndex
           }
           lexGreaterScanIndex += 1
           lexGreaterScanLcp = {
@@ -626,8 +654,8 @@ object TarsaMatchFinder extends MatchFinder {
           val optimalMatch =
             makePacked(currentMatchSource, suffixToInsert, currentMatchLength)
           if (currentMatchLength == maxMatch || currentMatchSource == 0 ||
-              inputData(currentMatchSource - 1) != inputData(
-                suffixToInsert - 1)) {
+              backColumn(suffixArrayStartingIndex + currentMatchIndex) !=
+                backColumn(suffixArrayStartingIndex + insertionPoint)) {
             onAccepted(optimalMatch)
           } else {
             onDiscarded(optimalMatch)
