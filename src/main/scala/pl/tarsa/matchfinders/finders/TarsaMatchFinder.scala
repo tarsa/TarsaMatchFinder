@@ -465,14 +465,14 @@ object TarsaMatchFinder extends MatchFinder {
                                  commonLcp,
                                  sortedElements)
 
-          var index = sortedElements
-          while (index > insertionPoint) {
-            backColumn(suffixArrayStartingIndex + index) = backColumn(
-              suffixArrayStartingIndex + index - 1)
+          var index = suffixArrayStartingIndex + sortedElements
+          while (index > suffixArrayStartingIndex + insertionPoint) {
+            suffixArray(index) = suffixArray(index - 1)
+            backColumn(index) = backColumn(index - 1)
             index -= 1
           }
-          backColumn(suffixArrayStartingIndex + insertionPoint) =
-            backSymbolOfSuffixToInsert
+          suffixArray(index) = suffixToInsert
+          backColumn(index) = backSymbolOfSuffixToInsert
           sortedElements += 1
           if (!skipLcpAwareInsertionSortMatchOutput) {
             outputMatchesForInsertedSuffix(commonLcp,
@@ -492,14 +492,10 @@ object TarsaMatchFinder extends MatchFinder {
                                    commonLcp: Int,
                                    sortedElements: Int): Int = {
       if (lcpArray(scannedPosition) < previousLcp) {
-        suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
-          suffixToInsert
         lcpArray(scannedPosition + 1) = previousLcp
         scannedPosition + 1
       } else if (lcpArray(scannedPosition) > previousLcp) {
         if (scannedPosition > 0) {
-          suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
-            suffixArray(suffixArrayStartingIndex + scannedPosition)
           lcpArray(scannedPosition + 1) = lcpArray(scannedPosition)
           insertAndReturnIndex(scannedPosition - 1,
                                suffixArrayStartingIndex,
@@ -508,10 +504,7 @@ object TarsaMatchFinder extends MatchFinder {
                                commonLcp,
                                sortedElements)
         } else {
-          suffixArray(suffixArrayStartingIndex + 1) = suffixArray(
-            suffixArrayStartingIndex)
           lcpArray(1) = lcpArray(0)
-          suffixArray(suffixArrayStartingIndex + 0) = suffixToInsert
           lcpArray(0) = previousLcp
           0
         }
@@ -525,21 +518,14 @@ object TarsaMatchFinder extends MatchFinder {
           suffixToInsert,
           lcp)
         if (ordered) {
-          suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
-            suffixToInsert
           lcpArray(scannedPosition + 1) = previousLcp
           lcpArray(scannedPosition) = lcp
           scannedPosition + 1
         } else if (scannedPosition == 0) {
-          suffixArray(suffixArrayStartingIndex + 1) = suffixArray(
-            suffixArrayStartingIndex)
           lcpArray(1) = lcpArray(0)
-          suffixArray(suffixArrayStartingIndex + 0) = suffixToInsert
           lcpArray(0) = lcp
           0
         } else {
-          suffixArray(suffixArrayStartingIndex + scannedPosition + 1) =
-            suffixArray(suffixArrayStartingIndex + scannedPosition)
           lcpArray(scannedPosition + 1) = lcpArray(scannedPosition)
           insertAndReturnIndex(scannedPosition - 1,
                                suffixArrayStartingIndex,
