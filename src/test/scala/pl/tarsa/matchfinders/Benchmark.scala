@@ -22,7 +22,10 @@ package pl.tarsa.matchfinders
 
 import java.nio.file.{Files, Paths}
 
-import pl.tarsa.matchfinders.collectors.IgnoringMatchCollector
+import pl.tarsa.matchfinders.collectors.{
+  CountingMatchCollector,
+  IgnoringMatchCollector
+}
 import pl.tarsa.matchfinders.finders.TarsaMatchFinder
 import pl.tarsa.util.Timed
 
@@ -35,21 +38,24 @@ object Benchmark {
 
   def main(args: Array[String]): Unit = {
     println("Warm up")
-    for (_ <- 0 to 1) {
+    for (_ <- 0 to 5) {
       Timed("TarsaMatchFinder.run") {
         TarsaMatchFinder.run(data, minMatch, maxMatch, IgnoringMatchCollector)
       }
     }
+    val collector = new CountingMatchCollector()
     for (iteration <- 0 to 10) {
       println(s"Iteration #$iteration")
-      for (skippedStages <- 0 to 5) {
+      for (skippedStages <- 0 to 4) {
+        collector.essentialMatchesCounter = 0
+        collector.discardedMatchesCounter = 0
         print(s"Skipped stages = $skippedStages: ")
         TarsaMatchFinder.skippedStages = skippedStages
         Timed("TarsaMatchFinder.run") {
-          TarsaMatchFinder.run(data,
-                               minMatch,
-                               maxMatch,
-                               IgnoringMatchCollector)
+          TarsaMatchFinder.run(data, minMatch, maxMatch, collector)
+          printf("(%,15d   %,15d) ",
+                 collector.essentialMatchesCounter,
+                 collector.discardedMatchesCounter)
         }
       }
       println()
