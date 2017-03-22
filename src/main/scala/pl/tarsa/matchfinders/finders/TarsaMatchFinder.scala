@@ -47,7 +47,7 @@ object TarsaMatchFinder extends MatchFinder {
                        skippedStages: Int) {
     import collector.{onAccepted, onDiscarded}
 
-    private val skipRadixSortCached = skippedStages > 3
+    private val skipRadixSort = skippedStages > 3
     private val skipRadixSortRemapped = skippedStages > 2
     private val skipLcpAwareInsertionSort = skippedStages > 1
     private val skipLcpAwareInsertionSortMatchOutput = skippedStages > 0
@@ -106,15 +106,11 @@ object TarsaMatchFinder extends MatchFinder {
 
     initialize()
 
-    final def getValue(index: Int, depth: Int): Int = {
-      inputData(suffixArray(index) + depth) & 0xFF
-    }
-
-    final def radixSearchCached(lcpLength: Int,
-                                startingIndex: Int,
-                                unsafeElementsNumber: Int): Unit = {
+    final def radixSearch(lcpLength: Int,
+                          startingIndex: Int,
+                          unsafeElementsNumber: Int): Unit = {
       var index = 0
-      if (skipRadixSortCached) {
+      if (skipRadixSort) {
         ()
       } else if (unsafeElementsNumber < RemappedAlphabetRadixSearchThreshold) {
         radixSearchRemapped(lcpLength, startingIndex, unsafeElementsNumber)
@@ -139,35 +135,7 @@ object TarsaMatchFinder extends MatchFinder {
             unsafeElementsNumber
           }
         }
-        if ((lcpLength & 3) == 0) {
-          index = startingIndex
-          while (index < startingIndex + elementsNumber) {
-            val chunkStart = suffixArray(index) + lcpLength
-            if (chunkStart <= size - 4) {
-              activeColumns(index) =
-                ((inputData(chunkStart + 3) & 0xFF) << 24) +
-                  ((inputData(chunkStart + 2) & 0xFF) << 16) +
-                  ((inputData(chunkStart + 1) & 0xFF) << 8) +
-                  (inputData(chunkStart) & 0xFF)
-            } else {
-              var symbolIndex = size - 1
-              var chunk = 0
-              while (symbolIndex >= chunkStart) {
-                chunk <<= 8
-                chunk |= inputData(symbolIndex) & 0xFF
-                symbolIndex -= 1
-              }
-              activeColumns(index) = chunk
-            }
-            index += 1
-          }
-        } else {
-          index = startingIndex
-          while (index < startingIndex + elementsNumber) {
-            activeColumns(index) >>>= 8
-            index += 1
-          }
-        }
+        refillOrShiftActiveColumns(lcpLength, startingIndex, elementsNumber)
         if (lcpLength >= minMatch) {
           index = startingIndex + 1
           while (index < startingIndex + elementsNumber) {
@@ -234,9 +202,7 @@ object TarsaMatchFinder extends MatchFinder {
           val segmentLength =
             segments(segmentIndex + 1) - segments(segmentIndex)
           if (segmentLength > 1) {
-            radixSearchCached(lcpLength + 1,
-                              segments(segmentIndex),
-                              segmentLength)
+            radixSearch(lcpLength + 1, segments(segmentIndex), segmentLength)
           }
           segmentIndex += 1
         }
@@ -281,13 +247,14 @@ object TarsaMatchFinder extends MatchFinder {
             unsafeElementsNumber
           }
         }
+        refillOrShiftActiveColumns(lcpLength, startingIndex, elementsNumber)
         if (lcpLength >= minMatch) {
           index = startingIndex + 1
           while (index < startingIndex + elementsNumber) {
             val optimalMatch =
               makePacked(suffixArray(index - 1), suffixArray(index), lcpLength)
-            if (lcpLength < maxMatch &&
-                getValue(index - 1, lcpLength) == getValue(index, lcpLength)) {
+            if (lcpLength < maxMatch && activeColumns(index - 1).toByte ==
+                  activeColumns(index).toByte) {
               onDiscarded(optimalMatch)
             } else if (suffixArray(index - 1) > 0 && suffixArray(index) > 0 &&
                        backColumn(index - 1) == backColumn(index)) {
@@ -301,7 +268,7 @@ object TarsaMatchFinder extends MatchFinder {
         var alphabetSize = 0
         index = startingIndex
         while (index < startingIndex + elementsNumber) {
-          val value = getValue(index, lcpLength)
+          val value = activeColumns(index) & 0xFF
           if (markers(value) == marker) {
             val mappedValue = alphabetMapping(value)
             histogram(mappedValue) += 1
@@ -323,11 +290,12 @@ object TarsaMatchFinder extends MatchFinder {
         }
         index = startingIndex
         while (index < startingIndex + elementsNumber) {
-          val mappedValue = alphabetMapping(getValue(index, lcpLength))
+          val mappedValue = alphabetMapping(activeColumns(index) & 0xFF)
           assert(mappedValue < alphabetSize)
           val destination = destinations(mappedValue)
           suffixArrayAuxiliary(destination) = suffixArray(index)
           backColumnAuxiliary(destination) = backColumn(index)
+          activeColumnsAuxiliary(destination) = activeColumns(index)
           destinations(mappedValue) += 1
           index += 1
         }
@@ -339,6 +307,11 @@ object TarsaMatchFinder extends MatchFinder {
         Array.copy(backColumnAuxiliary,
                    startingIndex,
                    backColumn,
+                   startingIndex,
+                   elementsNumber)
+        Array.copy(activeColumnsAuxiliary,
+                   startingIndex,
+                   activeColumns,
                    startingIndex,
                    elementsNumber)
         val segments = segmentsStack(lcpLength)
@@ -371,37 +344,74 @@ object TarsaMatchFinder extends MatchFinder {
       }
     }
 
+    final def refillOrShiftActiveColumns(lcpLength: Int,
+                                         startingIndex: Int,
+                                         elementsNumber: Int): Unit = {
+      var index = 0
+      if ((lcpLength & 3) == 0) {
+        index = startingIndex
+        while (index < startingIndex + elementsNumber) {
+          val chunkStart = suffixArray(index) + lcpLength
+          if (chunkStart <= size - 4) {
+            activeColumns(index) =
+              ((inputData(chunkStart + 3) & 0xFF) << 24) +
+                ((inputData(chunkStart + 2) & 0xFF) << 16) +
+                ((inputData(chunkStart + 1) & 0xFF) << 8) +
+                (inputData(chunkStart) & 0xFF)
+          } else {
+            var symbolIndex = size - 1
+            var chunk = 0
+            while (symbolIndex >= chunkStart) {
+              chunk <<= 8
+              chunk |= inputData(symbolIndex) & 0xFF
+              symbolIndex -= 1
+            }
+            activeColumns(index) = chunk
+          }
+          index += 1
+        }
+      } else {
+        index = startingIndex
+        while (index < startingIndex + elementsNumber) {
+          activeColumns(index) >>>= 8
+          index += 1
+        }
+      }
+    }
+
     final def lcpAwareInsertionSort(commonLcp: Int,
-                                    suffixArrayStartingIndex: Int,
+                                    startingOffset: Int,
                                     elementsNumber: Int): Unit = {
       if (!skipLcpAwareInsertionSort) {
+        refillOrShiftActiveColumns(commonLcp, startingOffset, elementsNumber)
         lcpArray(0) = commonLcp
         var sortedElements = 1
         while (sortedElements < elementsNumber) {
-          val suffixToInsert = suffixArray(
-            suffixArrayStartingIndex + sortedElements)
-          val backSymbolOfSuffixToInsert = backColumn(
-            suffixArrayStartingIndex + sortedElements)
           val insertionPoint =
             insertAndReturnIndex(sortedElements - 1,
-                                 suffixArrayStartingIndex,
-                                 suffixToInsert,
+                                 startingOffset,
                                  commonLcp,
                                  commonLcp,
                                  sortedElements)
-
-          var index = suffixArrayStartingIndex + sortedElements
-          while (index > suffixArrayStartingIndex + insertionPoint) {
+          val suffixToInsert = suffixArray(startingOffset + sortedElements)
+          val backSymbolOfSuffixToInsert = backColumn(
+            startingOffset + sortedElements)
+          val activeColumnOfSuffixToInsert = activeColumns(
+            startingOffset + sortedElements)
+          var index = startingOffset + sortedElements
+          while (index > startingOffset + insertionPoint) {
             suffixArray(index) = suffixArray(index - 1)
             backColumn(index) = backColumn(index - 1)
+            activeColumns(index) = activeColumns(index - 1)
             index -= 1
           }
           suffixArray(index) = suffixToInsert
           backColumn(index) = backSymbolOfSuffixToInsert
+          activeColumns(index) = activeColumnOfSuffixToInsert
           sortedElements += 1
           if (!skipLcpAwareInsertionSortMatchOutput) {
             outputMatchesForInsertedSuffix(commonLcp,
-                                           suffixArrayStartingIndex,
+                                           startingOffset,
                                            insertionPoint,
                                            sortedElements)
           }
@@ -411,11 +421,10 @@ object TarsaMatchFinder extends MatchFinder {
 
     @tailrec
     final def insertAndReturnIndex(scannedPosition: Int,
-                                   suffixArrayStartingIndex: Int,
-                                   suffixToInsert: Int,
+                                   startingOffset: Int,
                                    previousLcp: Int,
                                    commonLcp: Int,
-                                   sortedElements: Int): Int = {
+                                   insertedSuffixIndex: Int): Int = {
       if (lcpArray(scannedPosition) < previousLcp) {
         lcpArray(scannedPosition + 1) = previousLcp
         scannedPosition + 1
@@ -423,25 +432,26 @@ object TarsaMatchFinder extends MatchFinder {
         if (scannedPosition > 0) {
           lcpArray(scannedPosition + 1) = lcpArray(scannedPosition)
           insertAndReturnIndex(scannedPosition - 1,
-                               suffixArrayStartingIndex,
-                               suffixToInsert,
+                               startingOffset,
                                previousLcp,
                                commonLcp,
-                               sortedElements)
+                               insertedSuffixIndex)
         } else {
           lcpArray(1) = lcpArray(0)
           lcpArray(0) = previousLcp
           0
         }
       } else {
-        val lcp = computeLcp(
-          suffixArray(suffixArrayStartingIndex + scannedPosition),
-          suffixToInsert,
-          previousLcp)
-        val ordered = suffixesOrdered(
-          suffixArray(suffixArrayStartingIndex + scannedPosition),
-          suffixToInsert,
-          lcp)
+        val lcp = computeLcp(startingOffset,
+                             scannedPosition,
+                             insertedSuffixIndex,
+                             previousLcp,
+                             commonLcp)
+        val ordered = suffixesOrdered(startingOffset,
+                                      scannedPosition,
+                                      insertedSuffixIndex,
+                                      lcp,
+                                      commonLcp)
         if (ordered) {
           lcpArray(scannedPosition + 1) = previousLcp
           lcpArray(scannedPosition) = lcp
@@ -453,35 +463,59 @@ object TarsaMatchFinder extends MatchFinder {
         } else {
           lcpArray(scannedPosition + 1) = lcpArray(scannedPosition)
           insertAndReturnIndex(scannedPosition - 1,
-                               suffixArrayStartingIndex,
-                               suffixToInsert,
+                               startingOffset,
                                lcp,
                                commonLcp,
-                               sortedElements)
+                               insertedSuffixIndex)
         }
       }
     }
 
-    final def computeLcp(earlierSuffixStart: Int,
-                         laterSuffixStart: Int,
-                         knownLcp: Int): Int = {
+    final def computeLcp(startingOffset: Int,
+                         earlierSuffixIndex: Int,
+                         laterSuffixIndex: Int,
+                         knownLcp: Int,
+                         baseLcp: Int): Int = {
+      val earlierSuffixStart = suffixArray(startingOffset + earlierSuffixIndex)
+      val laterSuffixStart = suffixArray(startingOffset + laterSuffixIndex)
       assert(earlierSuffixStart < laterSuffixStart)
       assert(laterSuffixStart + knownLcp <= size)
-      val lcpLimit = math.min(maxMatch, size - laterSuffixStart)
-      var currentLcp = knownLcp
-      while (currentLcp < lcpLimit && {
-               val earlierByte = inputData(earlierSuffixStart + currentLcp)
-               val laterByte = inputData(laterSuffixStart + currentLcp)
-               earlierByte == laterByte
-             }) {
-        currentLcp += 1
+      val earlierSuffixActiveColumns =
+        activeColumns(startingOffset + earlierSuffixIndex)
+      val laterSuffixActiveColumns =
+        activeColumns(startingOffset + laterSuffixIndex)
+      if (earlierSuffixActiveColumns != laterSuffixActiveColumns) {
+        var difference = earlierSuffixActiveColumns ^ laterSuffixActiveColumns
+        assert(difference != 0)
+        var currentLcp = baseLcp
+        while ((difference & 0xFF) == 0) {
+          difference >>>= 8
+          currentLcp += 1
+        }
+        assert(currentLcp >= knownLcp)
+        math.min(currentLcp, maxMatch)
+      } else {
+        val lcpLimit = math.min(maxMatch, size - laterSuffixStart)
+        var currentLcp =
+          math.min(lcpLimit, math.max(knownLcp, (baseLcp | 3) + 1))
+        while (currentLcp < lcpLimit && {
+                 val earlierByte = inputData(earlierSuffixStart + currentLcp)
+                 val laterByte = inputData(laterSuffixStart + currentLcp)
+                 earlierByte == laterByte
+               }) {
+          currentLcp += 1
+        }
+        currentLcp
       }
-      currentLcp
     }
 
-    final def suffixesOrdered(firstSuffixStart: Int,
-                              secondSuffixStart: Int,
-                              lcp: Int): Boolean = {
+    final def suffixesOrdered(startingOffset: Int,
+                              firstSuffixIndex: Int,
+                              secondSuffixIndex: Int,
+                              lcp: Int,
+                              baseLcp: Int): Boolean = {
+      val firstSuffixStart = suffixArray(startingOffset + firstSuffixIndex)
+      val secondSuffixStart = suffixArray(startingOffset + secondSuffixIndex)
       assert(firstSuffixStart != secondSuffixStart)
       assert(firstSuffixStart + lcp <= size)
       assert(secondSuffixStart + lcp <= size)
@@ -492,19 +526,28 @@ object TarsaMatchFinder extends MatchFinder {
       } else if (lcp == maxMatch) {
         firstSuffixStart < secondSuffixStart
       } else {
-        val firstSuffixByte = inputData(firstSuffixStart + lcp) & 0xFF
-        val secondSuffixByte = inputData(secondSuffixStart + lcp) & 0xFF
-        assert(firstSuffixByte != secondSuffixByte)
-        firstSuffixByte < secondSuffixByte
+        if ((lcp ^ baseLcp) < 4) {
+          val shift = (lcp - baseLcp) * 8
+          val firstSuffixByte = (activeColumns(
+            startingOffset + firstSuffixIndex) >>> shift) & 0xFF
+          val secondSuffixByte = (activeColumns(
+            startingOffset + secondSuffixIndex) >>> shift) & 0xFF
+          assert(firstSuffixByte != secondSuffixByte)
+          firstSuffixByte < secondSuffixByte
+        } else {
+          val firstSuffixByte = inputData(firstSuffixStart + lcp) & 0xFF
+          val secondSuffixByte = inputData(secondSuffixStart + lcp) & 0xFF
+          assert(firstSuffixByte != secondSuffixByte)
+          firstSuffixByte < secondSuffixByte
+        }
       }
     }
 
     final def outputMatchesForInsertedSuffix(commonLcp: Int,
-                                             suffixArrayStartingIndex: Int,
+                                             startingOffset: Int,
                                              insertionPoint: Int,
                                              sortedElements: Int): Unit = {
-      val suffixToInsert = suffixArray(
-        suffixArrayStartingIndex + insertionPoint)
+      val suffixToInsert = suffixArray(startingOffset + insertionPoint)
       var currentMatchLength = -1
       if (insertionPoint > 0) {
         currentMatchLength = lcpArray(insertionPoint - 1)
@@ -531,7 +574,7 @@ object TarsaMatchFinder extends MatchFinder {
         var currentMatchIndex = -1
         while (lexSmallerScanLcp == currentMatchLength) {
           val lexSmallerScanSource = suffixArray(
-            suffixArrayStartingIndex + lexSmallerScanIndex)
+            startingOffset + lexSmallerScanIndex)
           if (lexSmallerScanSource > currentMatchSource) {
             currentMatchSource = lexSmallerScanSource
             currentMatchIndex = lexSmallerScanIndex
@@ -547,7 +590,7 @@ object TarsaMatchFinder extends MatchFinder {
         }
         while (lexGreaterScanLcp == currentMatchLength) {
           val lexGreaterScanSource = suffixArray(
-            suffixArrayStartingIndex + lexGreaterScanIndex)
+            startingOffset + lexGreaterScanIndex)
           if (lexGreaterScanSource > currentMatchSource) {
             currentMatchSource = lexGreaterScanSource
             currentMatchIndex = lexGreaterScanIndex
@@ -565,8 +608,8 @@ object TarsaMatchFinder extends MatchFinder {
           val optimalMatch =
             makePacked(currentMatchSource, suffixToInsert, currentMatchLength)
           if (currentMatchLength == maxMatch || currentMatchSource == 0 ||
-              backColumn(suffixArrayStartingIndex + currentMatchIndex) !=
-                backColumn(suffixArrayStartingIndex + insertionPoint)) {
+              backColumn(startingOffset + currentMatchIndex) !=
+                backColumn(startingOffset + insertionPoint)) {
             onAccepted(optimalMatch)
           } else {
             onDiscarded(optimalMatch)
@@ -584,7 +627,7 @@ object TarsaMatchFinder extends MatchFinder {
     }
 
     final def result(): Unit =
-      radixSearchCached(0, 0, size)
+      radixSearch(0, 0, size)
   }
 
   private def makePacked(source: Int, target: Int, length: Int): Match.Packed =

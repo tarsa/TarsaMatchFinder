@@ -7,7 +7,6 @@ List of to-do items
 - change license?
 
 ### Algorithm quality and resource usage
-- use cached active columns everywhere in TarsaMatchFinder
 - develop better heuristics for switching to LCP-aware insertion sort
 - make genetic algorithm to find best parameters (thresholds) for
   TarsaMatchFinder
