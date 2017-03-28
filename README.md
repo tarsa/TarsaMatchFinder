@@ -24,3 +24,5 @@ match (if there's a match for that position and length) with smallest offset.
   Binary (on-disk) formats
 - [Backlog](doc/BACKLOG.md) -
   List of to-do items
+- [Trees](doc/TREES.md) -
+  Sketching plans for using trees
