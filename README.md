@@ -10,7 +10,7 @@ longest match per each position. Instead, for every position and match length in
 specified interval (between min-match and max-match inclusive) it outputs a
 match (if there's a match for that position and length) with smallest offset.
 
-[1]: https://encode.ru/threads/2710-LZ-M-T-amp-GPU-compression-decompression?p=51865&viewfull=1#post51865
+[1]: https://encode.su/threads/2710-LZ-M-T-amp-GPU-compression-decompression?p=51865&viewfull=1#post51865
 
 ##### Documentation
 
