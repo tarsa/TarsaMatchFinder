@@ -18,13 +18,16 @@
 #
 import os
 from array import array
-from typing import BinaryIO
+from typing import BinaryIO, Optional
 
 from tmf.header import Header
 from tmf.match import Match
+from tmf.match_finder import BruteForceMatchFinder, FatHashMapMatchFinder
 
 
-def verify(input_file: BinaryIO, interpolated_matches_file: BinaryIO) -> None:
+def verify(match_finder_name: str,
+           input_file: BinaryIO, interpolated_matches_file: BinaryIO,
+           progress_period: Optional[int]) -> None:
     # read input file
     input_file_size = os.path.getsize(input_file.name)
     input_data = array("B")
@@ -35,28 +38,39 @@ def verify(input_file: BinaryIO, interpolated_matches_file: BinaryIO) -> None:
     header.validate()
     assert header.is_for_interpolated_matches()
     assert len(input_data) == header.input_size
+    # variables and match finder
+    current_offsets = [0] * (header.max_match + 1)
+    if match_finder_name == "bfmf":
+        match_finder = BruteForceMatchFinder(input_data, header.min_match,
+                                             header.max_match)
+    elif match_finder_name == "hmmf":
+        match_finder = FatHashMapMatchFinder(input_data, header.min_match,
+                                             header.max_match)
+    else:
+        raise ValueError("Unknown match finder: " + match_finder_name)
+    assert progress_period is None or progress_period >= 1
+    next_progress_checkpoint = progress_period
     # match verification logic
     matches_read = 0
-    for position in range(1, input_file_size):
-        current_max_match = 0
-        offset = 1
-        while (offset <= position) and (current_max_match < header.max_match):
-            try:
-                match_length = Match.compute_match_length(
-                    input_data, position - offset, position, header.max_match)
-                while current_max_match < match_length:
-                    current_max_match += 1
-                    if current_max_match >= header.min_match:
-                        input_match = Match.from_file(interpolated_matches_file)
-                        input_match.validate(header.min_match, header.max_match)
-                        assert input_match.position == position
-                        assert input_match.length == current_max_match
-                        assert input_match.offset == offset
-                        matches_read += 1
-            except Exception as e:
-                raise ValueError("problem after reading " + str(matches_read) +
-                                 " matches") from e
-            offset += 1
+    try:
+        for position in range(input_file_size):
+            current_max_match = \
+                match_finder.collect_matches_for_next_position(current_offsets)
+            for match_length in range(header.min_match, current_max_match + 1):
+                input_match = Match.from_file(interpolated_matches_file)
+                input_match.validate(header.min_match, header.max_match)
+                assert input_match.position == position
+                assert input_match.length == match_length
+                assert input_match.offset == current_offsets[match_length]
+                matches_read += 1
+            # display progress status
+            if position + 1 == next_progress_checkpoint:
+                print("Progress status: processed " +
+                      f"{position + 1:,}".replace(",", " ") + " positions")
+                next_progress_checkpoint += progress_period
+    except Exception as e:
+        raise ValueError("problem after reading " + str(matches_read) +
+                         " matches") from e
     assert input_file.read(1) == b"", \
         "no further data expected in interpolated matches file"
     print("Verification OK")

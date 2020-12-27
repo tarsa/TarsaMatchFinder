@@ -24,7 +24,8 @@ from tmf.match import Match
 
 
 def interpolate(essential_matches_file: BinaryIO,
-                interpolated_matches_file: BinaryIO) -> None:
+                interpolated_matches_file: BinaryIO,
+                progress_period: Optional[int]) -> None:
     # start reading essential matches file
     essential_matches_header = Header.from_file(essential_matches_file)
     essential_matches_header.validate()
@@ -56,11 +57,14 @@ def interpolate(essential_matches_file: BinaryIO,
         Header.for_interpolated_matches(input_size, min_match, max_match)
     interpolated_matches_file_header.validate()
     interpolated_matches_file_header.to_file(interpolated_matches_file)
-    # process matches
+    # variables
+    assert progress_period is None or progress_period >= 1
+    next_progress_checkpoint = progress_period
     current_essential_matches: List[Match] = []
-    inherited_offsets = [0 for _ in range(max_match + 1)]
-    current_offsets = [0 for _ in range(max_match + 1)]
+    inherited_offsets = [0] * (max_match + 1)
+    current_offsets = [0] * (max_match + 1)
     inherited_max_match = 0
+    # process matches
     for position in range(input_size):
         current_max_match = 0
         # reading and validating essential matches for current position
@@ -108,3 +112,9 @@ def interpolate(essential_matches_file: BinaryIO,
             inherited_offsets[inherited_match_length] = \
                 current_offsets[inherited_match_length + 1]
         inherited_max_match = current_max_match - 1
+        # display progress status
+        if position + 1 == next_progress_checkpoint:
+            print("Progress status: processed " +
+                  f"{position + 1:,}".replace(",", " ") + " positions")
+            next_progress_checkpoint += progress_period
+    print("Done")

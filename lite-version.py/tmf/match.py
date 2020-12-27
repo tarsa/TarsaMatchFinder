@@ -66,10 +66,11 @@ class Match:
                              target_pos: int, max_match: int) -> int:
         input_length = len(input_data)
         match_length = 0
-        while (source_pos + match_length < input_length) and \
-                (target_pos + match_length < input_length) and \
+        max_match = min(max_match,
+                        input_length - source_pos,
+                        input_length - target_pos)
+        while (match_length < max_match) and \
                 (input_data[source_pos + match_length] ==
-                 input_data[target_pos + match_length]) and \
-                (match_length < max_match):
+                 input_data[target_pos + match_length]):
             match_length += 1
         return match_length

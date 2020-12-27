@@ -20,6 +20,8 @@ Binary (on-disk) formats
   - minimum match length (short)
   - maximum match length (short)
 - sequence of matches described above
+  - sorted by position then offset or length
+    (both ways yield same order for valid data)
 
 ### Interpolated matches file
 
@@ -30,3 +32,5 @@ Binary (on-disk) formats
   - minimum match length (short)
   - maximum match length (short)
 - sequence of matches described above
+  - sorted by position then offset or length
+    (both ways yield same order for valid data)
